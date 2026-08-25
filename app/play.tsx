@@ -7,7 +7,10 @@ import { C, S } from '../src/components/theme';
 import { useProgress } from '../src/chess/ProgressContext';
 import { BOTS, type Bot } from '../src/chess/content';
 import { finishGame } from '../src/chess/progress';
-import { chooseMove, hangingSquare, reviewGame, updateElo, type ReviewedMove } from '../src/chess/ai';
+import { chooseMove, hangingSquare, updateElo } from '../src/chess/ai';
+import { createEngine } from '../src/analysis';
+import { revoirPartie, type CoupRevu } from '../src/analysis/review';
+import type { Verdict } from '../src/chess/coaching';
 import {
   START_FEN,
   colorOf,
@@ -39,12 +42,12 @@ interface GameState {
   badges: Record<number, SquareBadge>;
 }
 
-const QUALITY_LABEL: Record<ReviewedMove['quality'], { text: string; color: string }> = {
-  best: { text: 'Meilleur coup', color: C.green },
-  good: { text: 'Bon coup', color: C.blue },
-  inaccuracy: { text: 'Imprécision', color: C.gold },
-  mistake: { text: 'Erreur', color: '#d2723a' },
-  blunder: { text: 'Gaffe', color: C.red },
+const VERDICT_COULEUR: Record<Verdict, string> = {
+  brillant: C.gold,
+  bon: C.green,
+  imprecision: C.blue,
+  erreur: '#d2723a',
+  gaffe: C.red,
 };
 
 const newGame = (bot: Bot, side: Color): GameState => ({
@@ -67,7 +70,10 @@ export default function PlayScreen() {
   const { width } = useWindowDimensions();
   const { progress, update } = useProgress();
   const [game, setGame] = useState<GameState | null>(null);
-  const [review, setReview] = useState<ReviewedMove[] | null>(null);
+  const [review, setReview] = useState<CoupRevu[] | null>(null);
+  const [analysing, setAnalysing] = useState<string | null>(null);
+  // un seul moteur pour tout l'écran : le démarrer coûte le chargement du wasm
+  const engine = useRef<ReturnType<typeof createEngine> | null>(null);
   const [endDialog, setEndDialog] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -77,6 +83,9 @@ export default function PlayScreen() {
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      // le worker Stockfish survivrait au démontage de l'écran
+      engine.current?.dispose();
+      engine.current = null;
     },
     [],
   );
@@ -210,9 +219,26 @@ export default function PlayScreen() {
     });
   }, []);
 
-  const analyse = useCallback(() => {
+  const analyse = useCallback(async () => {
     if (!game) return;
-    setReview(reviewGame(parseFEN(START_FEN), game.moves, game.sans, game.side));
+    if (!engine.current) engine.current = createEngine();
+    setAnalysing('Analyse en cours…');
+    try {
+      const revue = await revoirPartie(
+        engine.current,
+        parseFEN(START_FEN),
+        game.moves,
+        game.sans,
+        game.side,
+        {
+          depth: 10,
+          onProgress: (fait, total) => setAnalysing(`Analyse ${fait}/${total}`),
+        },
+      );
+      setReview(revue);
+    } finally {
+      setAnalysing(null);
+    }
   }, [game]);
 
   // ---- choix de l'adversaire ----
@@ -243,13 +269,13 @@ export default function PlayScreen() {
 
   // ---- analyse de la partie ----
   if (review) {
-    const good = review.filter((r) => r.quality === 'best' || r.quality === 'good').length;
+    const good = review.filter((r) => r.verdict === 'bon' || r.verdict === 'brillant').length;
     return (
       <ScrollView style={S.screen} contentContainerStyle={{ paddingBottom: 28 }}>
         <CoachBubble
           coach="robi"
           text={`${good} bons coups sur ${review.length}. ${
-            review.some((r) => r.quality === 'blunder')
+            review.some((r) => r.verdict === 'gaffe')
               ? 'Regarde les gaffes : c’est là que la partie bascule.'
               : 'Partie très propre !'
           }`}
@@ -260,13 +286,13 @@ export default function PlayScreen() {
         <View style={[S.pad, { gap: 6 }]}>
           {review.map((r, i) => (
             <View key={`${r.san}-${i}`} style={[S.card, S.row]}>
-              <View style={[styles.tag, { backgroundColor: QUALITY_LABEL[r.quality].color }]} />
+              <View style={[styles.tag, { backgroundColor: VERDICT_COULEUR[r.verdict] }]} />
               <Text style={[S.itemTitle, { width: 70 }]}>
                 {i + 1}. {r.san}
               </Text>
               <Text style={[S.itemSub, { flex: 1 }]}>
-                {QUALITY_LABEL[r.quality].text}
-                {r.loss > 0.3 ? ` · −${r.loss}` : ''}
+                {r.titre}
+                {r.perte > 30 ? ` · −${(r.perte / 100).toFixed(1).replace('.', ',')}` : ''}
               </Text>
             </View>
           ))}
@@ -315,9 +341,14 @@ export default function PlayScreen() {
         </View>
       </ScrollView>
       <ActionBar>
-        <Action label="Annuler" onPress={undo} disabled={game.history.length === 0} />
-        <Action label={game.over ? 'Analyser' : 'Nouvelle'} primary onPress={game.over ? analyse : () => setGame(newGame(game.bot, game.side))} />
-        <Action label="Quitter" onPress={() => setGame(null)} />
+        <Action label="Annuler" onPress={undo} disabled={game.history.length === 0 || analysing !== null} />
+        <Action
+          label={analysing ?? (game.over ? 'Analyser' : 'Nouvelle')}
+          primary
+          disabled={analysing !== null}
+          onPress={game.over ? analyse : () => setGame(newGame(game.bot, game.side))}
+        />
+        <Action label="Quitter" onPress={() => setGame(null)} disabled={analysing !== null} />
       </ActionBar>
 
       <Dialog

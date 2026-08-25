@@ -1,0 +1,79 @@
+name: Déployer sur GitHub Pages
+
+# Publie la version web de Lotus Chess. Une fois en ligne, l'application
+# s'ajoute à l'écran d'accueil d'un iPhone et se lance sans ordinateur,
+# contrairement à Expo Go qui exige un serveur de développement allumé.
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois ; on laisse finir celui qui est en cours
+# plutôt que d'interrompre une publication à moitié faite.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construire:
+    name: Construire le site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier le typage
+        run: npx tsc --noEmit
+
+      - name: Lancer les tests
+        run: npm test -- --ci
+
+      - name: Configurer GitHub Pages
+        uses: actions/configure-pages@v5
+
+      # Le site est servi sous https://<compte>.github.io/<dépôt>/ : sans ce
+      # préfixe, le bundle et le moteur Stockfish seraient cherchés à la
+      # racine du domaine et rien ne se chargerait.
+      - name: Construire la version web
+        run: npx expo export --platform web --output-dir dist
+        env:
+          LOTUS_BASE_URL: /${{ github.event.repository.name }}
+
+      # GitHub Pages n'a pas de routeur : sur une URL profonde rechargée à la
+      # main, il sert 404.html. En y mettant la page d'accueil, le routeur de
+      # l'application prend le relais côté navigateur.
+      - name: Prévoir le repli des URL profondes
+        run: cp dist/index.html dist/404.html
+
+      # Ce workflow ne s'exécute que si `lotus-chess` est la racine du dépôt :
+      # `dist` est donc à la racine du checkout, sans préfixe de dossier.
+      - name: Téléverser le site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deployer:
+    name: Mettre en ligne
+    needs: construire
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - name: Déployer
+        id: deploiement
+        uses: actions/deploy-pages@v4

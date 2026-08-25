@@ -220,17 +220,19 @@ export default function TrainScreen() {
       </ScrollView>
       <ActionBar>
         <Action
+          testID="action-indice"
           label={etat.indicesVus === 0 ? 'Indice' : `Indice ${etat.indicesVus + 1}`}
           onPress={() => setEtat(reduire(exercise, etat, { type: 'indice' }))}
           disabled={!indiceDisponible(etat)}
         />
         <Action
+          testID="action-solution"
           label="Solution"
           onPress={() => setEtat(reduire(exercise, etat, { type: 'reveler' }))}
           disabled={etat.resolu}
         />
-        <Action label="Rejouer" onPress={rejouer} />
-        <Action label="Quitter" primary onPress={() => setExercise(null)} />
+        <Action testID="action-rejouer" label="Rejouer" onPress={rejouer} />
+        <Action testID="action-quitter" label="Quitter" primary onPress={() => setExercise(null)} />
       </ActionBar>
     </View>
   );
