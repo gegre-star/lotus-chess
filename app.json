@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Lotus Chess",
+    "slug": "lotus-chess",
+    "scheme": "lotuschess",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#262421",
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": true },
+    "android": {},
+    "plugins": ["expo-router"]
+  }
+}
