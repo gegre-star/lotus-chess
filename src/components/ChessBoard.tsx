@@ -70,16 +70,22 @@ function arrowPath(from: number, to: number, flipped: boolean): string {
   const px = -uy;
   const py = ux;
 
-  const headLength = 0.4;
-  const headWidth = 0.3;
-  const shaft = 0.115;
+  // Les marges et la pointe se réduisent sur les flèches courtes. À taille
+  // fixe elles consommaient 1,02 case pour une flèche d'une case — soit plus
+  // que sa longueur : la poussée de pion, le coup le plus fréquent des
+  // leçons, ne s'affichait qu'en moignon.
+  const marge = Math.min(0.3, len * 0.12);
+  const debut = Math.min(0.32, len * 0.18);
+  const headLength = Math.min(0.4, len * 0.4);
+  const headWidth = Math.min(0.3, len * 0.3);
+  const shaft = Math.min(0.115, len * 0.115);
   // on décolle la flèche du centre des cases pour ne pas masquer les pièces
-  const ex = tx - ux * 0.3;
-  const ey = ty - uy * 0.3;
+  const ex = tx - ux * marge;
+  const ey = ty - uy * marge;
   const bx = ex - ux * headLength;
   const by = ey - uy * headLength;
-  const sx = fx + ux * 0.32;
-  const sy = fy + uy * 0.32;
+  const sx = fx + ux * debut;
+  const sy = fy + uy * debut;
 
   return [
     `M${sx + px * shaft} ${sy + py * shaft}`,

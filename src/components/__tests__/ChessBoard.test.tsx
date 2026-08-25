@@ -1,5 +1,6 @@
 import React from 'react';
 import renderer, { act, type ReactTestInstance } from 'react-test-renderer';
+import { Path } from 'react-native-svg';
 import { ChessBoard } from '../ChessBoard';
 import { START_FEN, parseFEN, squareFromName } from '../../chess/engine';
 
@@ -58,5 +59,40 @@ describe('ChessBoard', () => {
       const root = render();
       expect(root.findAllByProps({ testID: 'arrow-overlay' })).toHaveLength(0);
     });
+  });
+});
+
+/**
+ * Régression : les marges et la pointe étaient de taille fixe et consommaient
+ * 1,02 case. Sur une flèche d'une seule case — la poussée de pion, le coup le
+ * plus fréquent des leçons — il ne restait rien à dessiner.
+ */
+describe('géométrie des flèches', () => {
+  const cheminDe = (from: string, to: string): string => {
+    const root = render({ arrows: [[from, to]] });
+    return root.findByProps({ testID: 'arrow-overlay' }).findAllByType(Path)[0].props.d as string;
+  };
+
+  /** Toutes les coordonnées d'un chemin SVG. */
+  const points = (d: string): number[] =>
+    (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+
+  it('dessine une flèche d’une case sans la réduire à un point', () => {
+    const pts = points(cheminDe('e2', 'e3'));
+    const ys = pts.filter((_, i) => i % 2 === 1);
+    // la flèche doit couvrir une hauteur appréciable, pas se replier sur elle-même
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(0.3);
+  });
+
+  it('ne produit aucune coordonnée invalide', () => {
+    ['e3', 'e4', 'e8', 'h5', 'a6'].forEach((to) => {
+      points(cheminDe('e2', to)).forEach((n) => expect(Number.isFinite(n)).toBe(true));
+    });
+  });
+
+  it('garde les flèches longues à pleine taille', () => {
+    const pts = points(cheminDe('e1', 'e8'));
+    const ys = pts.filter((_, i) => i % 2 === 1);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(5);
   });
 });

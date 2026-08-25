@@ -53,6 +53,9 @@ export default function ChessLayout() {
             lui ajoutait donc un onglet « +not-found » et tronquait les libellés
             des cinq vrais. `href: null` la garde atteignable sans la lister. */}
         <Tabs.Screen name="+not-found" options={{ href: null }} />
+        {/* Atteignable depuis « Apprendre » : un sixième onglet tronquerait
+            les libellés des cinq autres. */}
+        <Tabs.Screen name="games" options={{ href: null, title: 'Parties de maîtres' }} />
         <Tabs.Screen
           name="index"
           options={{ title: 'Accueil', tabBarIcon: icon('♟') }}

@@ -5,7 +5,8 @@ import { CoachBubble, type BubbleTone } from '../src/components/CoachBubble';
 import { Action, ActionBar, ListItem, ProgressBar } from '../src/components/UI';
 import { C, S } from '../src/components/theme';
 import { useProgress } from '../src/chess/ProgressContext';
-import { LESSONS, SECTIONS, type Lesson } from '../src/chess/content';
+import { router } from 'expo-router';
+import { GAMES, LESSONS, SECTIONS, type Lesson } from '../src/chess/content';
 import { addXP, completeLesson } from '../src/chess/progress';
 import {
   colorOf,
@@ -167,6 +168,19 @@ export default function LearnScreen() {
             {done}/{LESSONS.length}
           </Text>
         </View>
+        <View style={S.sectionRow}>
+          <Text style={S.sectionTitle}>Observer</Text>
+          <Text style={S.sectionMeta}>Les parties des maîtres</Text>
+        </View>
+        <View style={[S.pad, { gap: 8 }]}>
+          <ListItem
+            title="Parties de maîtres"
+            subtitle="Cherche le coup, puis compare au tien"
+            done={GAMES.every((g) => progress.seenGames[g.id])}
+            onPress={() => router.push('/games')}
+          />
+        </View>
+
         {SECTIONS.map((section, si) => (
           <View key={section.name}>
             <View style={S.sectionRow}>
