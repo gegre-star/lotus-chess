@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { TROPHIES } from './content';
 import {
   type Awarded,
@@ -37,11 +37,15 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState<Progress>(emptyProgress);
   const [loading, setLoading] = useState(true);
   const [queue, setQueue] = useState<string[]>([]);
+  // `loading` est un état : sa valeur au moment où `update` est créé serait
+  // figée dans la fermeture. Une référence dit toujours la vérité.
+  const relu = useRef(false);
 
   useEffect(() => {
     let alive = true;
     loadProgress().then((saved) => {
       if (!alive) return;
+      relu.current = true;
       setProgress(saved);
       setLoading(false);
     });
@@ -51,6 +55,11 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const update = useCallback((fn: (p: Progress) => Awarded): string[] => {
+    // Tant que la sauvegarde n'a pas été relue, l'état en mémoire est vide.
+    // Écrire maintenant remplacerait la progression de l'élève par ce vide —
+    // il perdrait tout pour avoir touché l'écran une fraction de seconde trop
+    // tôt. On préfère ignorer l'action.
+    if (!relu.current) return [];
     let unlocked: string[] = [];
     setProgress((current) => {
       const result = fn(current);
@@ -63,6 +72,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setSettings = useCallback((patch: Partial<Settings>) => {
+    if (!relu.current) return;
     setProgress((current) => {
       const next = { ...current, settings: { ...current.settings, ...patch } };
       void saveProgress(next);
