@@ -10,7 +10,7 @@ import { finishGame } from '../src/chess/progress';
 import { chooseMove, hangingSquare, updateElo } from '../src/chess/ai';
 import { createEngine } from '../src/analysis';
 import { revoirPartie, type CoupRevu } from '../src/analysis/review';
-import { perteEnPions, type Verdict } from '../src/chess/coaching';
+import { expliquerRefus, perteEnPions, type Verdict } from '../src/chess/coaching';
 import {
   START_FEN,
   castleByRook,
@@ -275,14 +275,23 @@ export default function PlayScreen() {
         const piece = g.position.board[square];
         const sien = colorOf(piece) === g.position.turn;
 
-        // Un refus muet laisse croire que le coup est interdit sans dire
-        // pourquoi. Et sur un échec, annoncer la menace ne suffit pas : quand
-        // une seule pièce peut parer, un débutant la cherche, ne la trouve pas
-        // et conclut qu'il est mat. On compte donc les réponses, et on montre
-        // les pièces capables de jouer — mais seulement après un premier
-        // essai manqué, comme les indices des exercices.
-        const refus = g.selected !== null && !sien;
-        if (refus && inCheck(g.position, g.position.turn)) {
+        // Un refus muet est la première cause de « c'est un bug » : l'élève
+        // voit une capture évidente, elle est refusée, et rien ne l'éclaire.
+        // On explique d'abord le coup précis qu'il vient de tenter — « cette
+        // pièce est défendue », « elle est clouée » — car c'est cela qu'il
+        // cherche à comprendre, avant l'état général de la position.
+        if (g.selected !== null) {
+          const pourquoi = expliquerRefus(g.position, g.selected, square);
+          if (pourquoi) {
+            return { ...g, selected: null, aideEchec: true, message: pourquoi };
+          }
+        }
+
+        // Sur un échec, annoncer la menace ne suffit pas : quand une seule
+        // pièce peut parer, un débutant la cherche, ne la trouve pas, et
+        // conclut qu'il est mat. On montre donc les pièces capables de jouer,
+        // après un premier essai manqué comme les indices des exercices.
+        if (g.selected !== null && !sien && inCheck(g.position, g.position.turn)) {
           const parades = new Set(legalMoves(g.position).map((m) => m.from));
           return {
             ...g,

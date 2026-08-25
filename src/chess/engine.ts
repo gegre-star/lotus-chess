@@ -368,6 +368,16 @@ export const movesFrom = (pos: Position, from: number): Move[] =>
   legalMoves(pos).filter((m) => m.from === from);
 
 /**
+ * Coups d'une pièce avant application de la règle du roi en échec.
+ *
+ * Sert à distinguer deux refus que l'élève vit de la même façon : la pièce ne
+ * va pas là (rien à expliquer), ou elle irait mais laisserait le roi en échec
+ * (et là il faut le dire).
+ */
+export const pseudoMovesFrom = (pos: Position, from: number): Move[] =>
+  pseudoMoves(pos).filter((m) => m.from === from);
+
+/**
  * Roque désigné en touchant sa propre tour plutôt que la case d'arrivée du roi.
  *
  * Beaucoup d'applications d'échecs acceptent les deux gestes, et c'est celui
