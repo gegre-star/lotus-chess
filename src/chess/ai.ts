@@ -81,7 +81,9 @@ export function search(pos: Position, depth: number, alpha: number, beta: number
   const status = gameStatus(pos);
   // le score de mat décroît avec la distance : un mat rapide vaut mieux qu'un mat lent
   if (status === 'mate') return pos.turn === 'w' ? -MATE_SCORE - depth : MATE_SCORE + depth;
-  if (status === 'stalemate') return 0;
+  // pat et nulles de règle valent zéro : sans cela une position morte serait
+  // évaluée au matériel, et le moteur croirait gagner une partie déjà nulle
+  if (status === 'stalemate' || status.startsWith('draw')) return 0;
   if (depth === 0) return evaluate(pos);
 
   const moves = orderMoves(legalMoves(pos));

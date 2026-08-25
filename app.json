@@ -7,9 +7,22 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#262421",
-    "assetBundlePatterns": ["**/*"],
-    "ios": { "supportsTablet": true },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
     "android": {},
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "baseUrl": "/lotus-chess"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
   }
 }
