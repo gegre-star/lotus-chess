@@ -13,8 +13,10 @@ import { revoirPartie, type CoupRevu } from '../src/analysis/review';
 import type { Verdict } from '../src/chess/coaching';
 import {
   START_FEN,
+  castleByRook,
   colorOf,
   findKing,
+  inCheck,
   gameStatus,
   makeMove,
   movesFrom,
@@ -200,9 +202,20 @@ export default function PlayScreen() {
             const move = candidates.find((m) => m.promotion === 'Q') ?? candidates[0];
             return applyMove(g, move);
           }
+          // toucher sa propre tour est l'autre geste courant pour roquer
+          const roque = castleByRook(g.position, g.selected, square);
+          if (roque) return applyMove(g, roque);
         }
+
         const piece = g.position.board[square];
-        return { ...g, selected: colorOf(piece) === g.position.turn ? square : null };
+        const sien = colorOf(piece) === g.position.turn;
+        // un refus muet laisse croire que le coup est interdit sans dire
+        // pourquoi ; l'échec est de loin la raison la plus fréquente
+        const message =
+          g.selected !== null && !sien && inCheck(g.position, g.position.turn)
+            ? 'Ton roi est en échec : il faut d’abord parer la menace.'
+            : g.message;
+        return { ...g, selected: sien ? square : null, message };
       });
     },
     [applyMove],

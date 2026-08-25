@@ -1,4 +1,5 @@
 import {
+  castleByRook,
   parseFEN,
   toFEN,
   makeMove,
@@ -146,5 +147,51 @@ describe('FEN', () => {
   it('conserve les pendules lors de l’aller-retour', () => {
     const fen = 'r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 7 42';
     expect(toFEN(parseFEN(fen))).toBe(fen);
+  });
+});
+
+describe('roque désigné par la tour', () => {
+  /**
+   * Beaucoup de joueurs roquent en touchant leur tour plutôt que la case
+   * d'arrivée du roi. Sans ce geste, le roque semble interdit alors qu'il est
+   * légal — c'est ce que le test de bout en bout dans le navigateur a montré.
+   */
+  const pret = () => parseFEN('r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1');
+
+  it('reconnaît le petit roque par la tour h1', () => {
+    const m = castleByRook(pret(), at('e1'), at('h1'));
+    expect(m?.castle).toBe('K');
+    expect(m?.to).toBe(at('g1'));
+  });
+
+  it('reconnaît le grand roque par la tour a1', () => {
+    const m = castleByRook(pret(), at('e1'), at('a1'));
+    expect(m?.castle).toBe('Q');
+    expect(m?.to).toBe(at('c1'));
+  });
+
+  it('fonctionne pour les noirs', () => {
+    const pos = parseFEN('r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1');
+    expect(castleByRook(pos, at('e8'), at('h8'))?.castle).toBe('K');
+    expect(castleByRook(pos, at('e8'), at('a8'))?.castle).toBe('Q');
+  });
+
+  it('refuse quand le roque n’est plus légal', () => {
+    // roi en échec : le roque est interdit
+    const enEchec = parseFEN('r3k2r/8/8/8/8/8/4r3/R3K2R w KQkq - 0 1');
+    expect(castleByRook(enEchec, at('e1'), at('h1'))).toBeUndefined();
+    // droits perdus
+    const sansDroits = parseFEN('r3k2r/8/8/8/8/8/8/R3K2R w kq - 0 1');
+    expect(castleByRook(sansDroits, at('e1'), at('h1'))).toBeUndefined();
+    // case occupée entre le roi et la tour
+    const bloque = parseFEN('r3k2r/8/8/8/8/8/8/R3KB1R w KQkq - 0 1');
+    expect(castleByRook(bloque, at('e1'), at('h1'))).toBeUndefined();
+  });
+
+  it('ignore une tour adverse ou une pièce qui n’en est pas une', () => {
+    const pos = pret();
+    expect(castleByRook(pos, at('e1'), at('a8'))).toBeUndefined();
+    expect(castleByRook(pos, at('e1'), at('e1'))).toBeUndefined();
+    expect(castleByRook(pos, at('e1'), at('d4'))).toBeUndefined();
   });
 });
