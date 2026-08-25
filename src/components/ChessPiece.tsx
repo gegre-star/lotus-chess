@@ -1,6 +1,6 @@
 import React from 'react';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
-import type { Piece } from '../../chess/engine';
+import type { Piece } from '../chess/engine';
 
 /**
  * Pièces dessinées en vectoriel, sur une grille de 45 × 45.

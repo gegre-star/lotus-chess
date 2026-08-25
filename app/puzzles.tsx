@@ -1,13 +1,13 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { ChessBoard, type Arrow, type SquareBadge } from '../../src/components/chess/ChessBoard';
-import { CoachBubble, type BubbleTone } from '../../src/components/chess/CoachBubble';
-import { Action, ActionBar, ListItem, ProgressBar } from '../../src/components/chess/UI';
-import { C, S } from '../../src/components/chess/theme';
-import { useProgress } from '../../src/chess/ProgressContext';
-import { PUZZLES, type Puzzle } from '../../src/chess/content';
-import { failPuzzle, solvePuzzle } from '../../src/chess/progress';
-import { chooseMove, evaluate, isGoodMove } from '../../src/chess/ai';
+import { ChessBoard, type Arrow, type SquareBadge } from '../src/components/ChessBoard';
+import { CoachBubble, type BubbleTone } from '../src/components/CoachBubble';
+import { Action, ActionBar, ListItem, ProgressBar } from '../src/components/UI';
+import { C, S } from '../src/components/theme';
+import { useProgress } from '../src/chess/ProgressContext';
+import { PUZZLES, type Puzzle } from '../src/chess/content';
+import { failPuzzle, solvePuzzle } from '../src/chess/progress';
+import { chooseMove, evaluate, isGoodMove } from '../src/chess/ai';
 import {
   colorOf,
   findKing,
@@ -18,7 +18,7 @@ import {
   squareName,
   type Move,
   type Position,
-} from '../../src/chess/engine';
+} from '../src/chess/engine';
 
 interface Session {
   puzzle: Puzzle;

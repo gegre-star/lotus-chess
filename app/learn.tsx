@@ -1,12 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { ChessBoard, type Arrow, type SquareBadge } from '../../src/components/chess/ChessBoard';
-import { CoachBubble, type BubbleTone } from '../../src/components/chess/CoachBubble';
-import { Action, ActionBar, ListItem, ProgressBar } from '../../src/components/chess/UI';
-import { C, S } from '../../src/components/chess/theme';
-import { useProgress } from '../../src/chess/ProgressContext';
-import { LESSONS, SECTIONS, type Lesson } from '../../src/chess/content';
-import { addXP, completeLesson } from '../../src/chess/progress';
+import { ChessBoard, type Arrow, type SquareBadge } from '../src/components/ChessBoard';
+import { CoachBubble, type BubbleTone } from '../src/components/CoachBubble';
+import { Action, ActionBar, ListItem, ProgressBar } from '../src/components/UI';
+import { C, S } from '../src/components/theme';
+import { useProgress } from '../src/chess/ProgressContext';
+import { LESSONS, SECTIONS, type Lesson } from '../src/chess/content';
+import { addXP, completeLesson } from '../src/chess/progress';
 import {
   colorOf,
   findMove,
@@ -16,7 +16,7 @@ import {
   squareFromName as at,
   type Move,
   type Position,
-} from '../../src/chess/engine';
+} from '../src/chess/engine';
 
 interface StepState {
   position: Position;

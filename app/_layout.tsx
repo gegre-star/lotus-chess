@@ -1,10 +1,10 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { ProgressProvider, useProgress } from '../../src/chess/ProgressContext';
-import { TROPHY_LABEL } from '../../src/components/chess/trophies';
-import { Button, Dialog } from '../../src/components/chess/UI';
-import { C } from '../../src/components/chess/theme';
+import { ProgressProvider, useProgress } from '../src/chess/ProgressContext';
+import { TROPHY_LABEL } from '../src/components/trophies';
+import { Button, Dialog } from '../src/components/UI';
+import { C } from '../src/components/theme';
 
 /** Fenêtre de félicitations, affichée dès qu'un trophée est débloqué. */
 function TrophyCelebration() {

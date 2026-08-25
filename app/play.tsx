@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { ChessBoard, type SquareBadge } from '../../src/components/chess/ChessBoard';
-import { CoachBubble, type BubbleTone } from '../../src/components/chess/CoachBubble';
-import { Action, ActionBar, Button, Dialog, ListItem } from '../../src/components/chess/UI';
-import { C, S } from '../../src/components/chess/theme';
-import { useProgress } from '../../src/chess/ProgressContext';
-import { BOTS, type Bot } from '../../src/chess/content';
-import { finishGame } from '../../src/chess/progress';
-import { chooseMove, hangingSquare, reviewGame, updateElo, type ReviewedMove } from '../../src/chess/ai';
+import { ChessBoard, type SquareBadge } from '../src/components/ChessBoard';
+import { CoachBubble, type BubbleTone } from '../src/components/CoachBubble';
+import { Action, ActionBar, Button, Dialog, ListItem } from '../src/components/UI';
+import { C, S } from '../src/components/theme';
+import { useProgress } from '../src/chess/ProgressContext';
+import { BOTS, type Bot } from '../src/chess/content';
+import { finishGame } from '../src/chess/progress';
+import { chooseMove, hangingSquare, reviewGame, updateElo, type ReviewedMove } from '../src/chess/ai';
 import {
   START_FEN,
   colorOf,
@@ -21,7 +21,7 @@ import {
   type Color,
   type Move,
   type Position,
-} from '../../src/chess/engine';
+} from '../src/chess/engine';
 
 interface GameState {
   bot: Bot;

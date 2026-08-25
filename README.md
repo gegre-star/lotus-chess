@@ -1,34 +1,24 @@
 # Lotus Chess
 
-Application d'apprentissage des échecs : leçons guidées, problèmes tactiques et
-parties contre l'ordinateur, en français, entièrement hors ligne.
-
-> **À noter** : ce module est indépendant de l'application d'anglais. Il ne
-> partage aucun code avec elle et peut être déplacé tel quel dans son propre
-> dépôt (`src/chess`, `src/components/chess`, `app/chess`).
+Application mobile d'apprentissage des échecs, en français, entièrement hors
+ligne. Leçons guidées par des coachs, problèmes tactiques et parties contre
+l'ordinateur.
 
 ## Lancer sur un iPhone
+
+Il te faut [Node.js 20](https://nodejs.org) sur ton ordinateur et l'application
+**Expo Go** sur ton téléphone. Les deux doivent être sur le même réseau Wi‑Fi.
 
 ```bash
 npm install
 npx expo start
 ```
 
-Scanner le QR code avec l'appareil photo, qui propose d'ouvrir dans Expo Go,
-puis naviguer vers `/chess`.
+Scanner le QR code avec l'appareil photo de l'iPhone : une notification propose
+de l'ouvrir dans Expo Go.
 
-## Organisation
-
-| Fichier | Rôle |
-| --- | --- |
-| `engine.ts` | Règles du jeu : coups légaux, roque, prise en passant, promotion, mat, pat |
-| `ai.ts` | Évaluation, recherche minimax, notation des coups, classement Elo |
-| `content.ts` | Leçons, problèmes, ouvertures, bots, parties célèbres |
-| `progress.ts` | Points, trophées, sauvegarde locale (AsyncStorage) |
-| `ProgressContext.tsx` | Partage de la progression entre les écrans |
-
-L'interface vit dans `src/components/chess` (échiquier, pièces, coachs) et
-`app/chess` (les quatre onglets).
+Si le QR code ne fonctionne pas, ton réseau bloque sans doute la connexion
+locale — essayer `npx expo start --tunnel`.
 
 ## Contenu
 
@@ -36,22 +26,33 @@ L'interface vit dans `src/components/chess` (échiquier, pièces, coachs) et
 16 thèmes tactiques, 17 ouvertures, 5 adversaires de 500 à 1900 Elo et
 12 trophées.
 
-Les textes, les positions et les personnages sont originaux. Les parties de
-la section « Observer » sont des relevés historiques (Morphy 1858,
+Les textes, les positions et les personnages sont originaux. Les parties
+historiques citées sont des relevés de parties réelles (Morphy 1858,
 Anderssen 1851, Byrne–Fischer 1956).
+
+## Organisation
+
+| Dossier | Rôle |
+| --- | --- |
+| `src/chess/engine.ts` | Règles : coups légaux, roque, prise en passant, promotion, mat, pat |
+| `src/chess/ai.ts` | Évaluation, recherche minimax, notation des coups, classement Elo |
+| `src/chess/content.ts` | Leçons, problèmes, ouvertures, bots, parties célèbres |
+| `src/chess/progress.ts` | Points, trophées, sauvegarde locale |
+| `src/components/` | Échiquier, pièces vectorielles, coachs, éléments d'interface |
+| `app/` | Les quatre onglets |
 
 ## Vérification
 
 ```bash
-npm test          # 189 tests sur le moteur, le contenu et la progression
-npx tsc --noEmit  # typage strict
+npm test        # moteur, contenu et progression
+npm run typecheck
 ```
 
 Le moteur est validé par `perft` sur trois positions de référence, dont
 « Kiwipete », qui piège les implémentations approximatives du roque et de la
 prise en passant.
 
-Chaque position du contenu est vérifiée automatiquement : positions licites
+Chaque position du contenu est contrôlée automatiquement : positions licites
 (les deux rois présents, le camp qui n'a pas le trait n'est jamais en échec),
 coups demandés réellement jouables, et solutions de problèmes qui atteignent
 bien leur objectif — mat annoncé ou gain de matériel.

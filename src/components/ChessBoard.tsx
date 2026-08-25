@@ -11,8 +11,8 @@ import {
   squareFromName,
   type Move,
   type Position,
-} from '../../chess/engine';
-import type { BoardTheme } from '../../chess/progress';
+} from '../chess/engine';
+import type { BoardTheme } from '../chess/progress';
 
 export const BOARD_THEMES: Record<BoardTheme, { light: string; dark: string }> = {
   foret: { light: '#ebecd0', dark: '#779556' },

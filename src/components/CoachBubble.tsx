@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import type { CoachId } from '../../chess/content';
+import type { CoachId } from '../chess/content';
 
 export type BubbleTone = 'neutral' | 'ok' | 'bad';
 

@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CoachBubble } from '../../src/components/chess/CoachBubble';
-import { Button, ProgressBar } from '../../src/components/chess/UI';
-import { TROPHY_LABEL } from '../../src/components/chess/trophies';
-import { C, S } from '../../src/components/chess/theme';
-import { useProgress } from '../../src/chess/ProgressContext';
-import { LESSONS, PUZZLES, SECTIONS, TROPHIES } from '../../src/chess/content';
-import { XP_PER_LEVEL, levelOf, xpIntoLevel } from '../../src/chess/progress';
+import { CoachBubble } from '../src/components/CoachBubble';
+import { Button, ProgressBar } from '../src/components/UI';
+import { TROPHY_LABEL } from '../src/components/trophies';
+import { C, S } from '../src/components/theme';
+import { useProgress } from '../src/chess/ProgressContext';
+import { LESSONS, PUZZLES, SECTIONS, TROPHIES } from '../src/chess/content';
+import { XP_PER_LEVEL, levelOf, xpIntoLevel } from '../src/chess/progress';
 
 function Stat({ value, label }: { value: string | number; label: string }) {
   return (
