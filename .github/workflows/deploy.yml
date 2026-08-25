@@ -53,11 +53,15 @@ jobs:
         env:
           LOTUS_BASE_URL: /${{ github.event.repository.name }}
 
-      # GitHub Pages n'a pas de routeur : sur une URL profonde rechargée à la
-      # main, il sert 404.html. En y mettant la page d'accueil, le routeur de
-      # l'application prend le relais côté navigateur.
-      - name: Prévoir le repli des URL profondes
-        run: cp dist/index.html dist/404.html
+      # Ajoute le manifeste et les métadonnées Apple, puis écrit 404.html.
+      # Sans manifeste, « Sur l'écran d'accueil » ne crée qu'un raccourci vers
+      # Safari : iOS ne considère pas l'application comme installée et traite
+      # son stockage comme celui d'un site ordinaire, effaçable après sept
+      # jours sans visite. Voir scripts/finaliser-web.mjs.
+      - name: Finaliser le site
+        run: node scripts/finaliser-web.mjs dist
+        env:
+          LOTUS_BASE_URL: /${{ github.event.repository.name }}
 
       # Ce workflow ne s'exécute que si `lotus-chess` est la racine du dépôt :
       # `dist` est donc à la racine du checkout, sans préfixe de dossier.
