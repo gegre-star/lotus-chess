@@ -216,3 +216,32 @@ describe('lecture d’un état sauvegardé', () => {
     expect(normalize({ history: 'pas un tableau' }).history).toEqual([]);
   });
 });
+
+describe('normalisation d’une sauvegarde existante', () => {
+  /**
+   * Régression : une sauvegarde antérieure aux exercices ne portait pas le
+   * champ `exercises`. Sans valeur de repli, la lecture rendait `undefined` et
+   * le premier accès plantait — l'élève aurait perdu toute sa progression.
+   */
+  it('complète les champs absents sans effacer les autres', () => {
+    const ancienne = {
+      xp: 340,
+      elo: 912,
+      lessons: { roque: true },
+      puzzles: { 'dame-roi': true },
+    };
+    const p = normalize(ancienne);
+    expect(p.xp).toBe(340);
+    expect(p.elo).toBe(912);
+    expect(p.lessons).toEqual({ roque: true });
+    expect(p.puzzles).toEqual({ 'dame-roi': true });
+    expect(p.exercises).toEqual({});
+    expect(p.settings.board).toBe('foret');
+  });
+
+  it('rend une progression vide sur une sauvegarde illisible', () => {
+    expect(normalize(null).xp).toBe(0);
+    expect(normalize('n’importe quoi').xp).toBe(0);
+    expect(normalize(undefined).exercises).toEqual({});
+  });
+});
