@@ -12,12 +12,17 @@
 import { makeMove, toFEN, type Color, type Move, type Position } from '../chess/engine';
 import { colorOf } from '../chess/engine';
 import { noterCoup, type Feedback } from '../chess/coaching';
+import { toUci } from './local';
 import { whitePov, type AnalysisEngine } from './types';
 
 export interface CoupRevu extends Feedback {
   san: string;
   /** Numéro du demi-coup dans la partie, à partir de 1. */
   ply: number;
+  /** Coup joué, au format UCI, pour le tracer sur l'échiquier. */
+  joue: string;
+  /** Meilleur coup de la position d'avant, pour montrer ce qu'il fallait jouer. */
+  meilleur: string | null;
 }
 
 export interface OptionsRevue {
@@ -59,6 +64,8 @@ export async function revoirPartie(
         ...noterCoup({ pos, move, meilleur, joue }),
         san: sans[i] ?? '',
         ply: i + 1,
+        joue: toUci(move),
+        meilleur: avant.best,
       });
       options.onProgress?.(out.length, total);
     }

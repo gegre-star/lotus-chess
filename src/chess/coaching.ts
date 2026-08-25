@@ -124,7 +124,24 @@ export interface Feedback {
   titre: string;
   texte: string;
   bilan: BilanMateriel;
+  /** Évaluation du meilleur coup, telle que reçue. */
+  evalMeilleur: number;
+  /** Évaluation du coup joué, même convention. */
+  evalJoue: number;
 }
+
+/**
+ * Au-delà de ce score, l'évaluation ne décrit plus du matériel mais un mat.
+ *
+ * Les scores de mat valent environ 100 000 : les soustraire donne des écarts
+ * comme « 989 pions », qui ne veulent rien dire. Il faut alors parler de mat,
+ * pas de points.
+ */
+export const SEUIL_MAT = 5000;
+
+/** Perte exprimée en pions, ou `null` quand c'est un mat qui se joue. */
+export const perteEnPions = (perte: number): number | null =>
+  perte >= SEUIL_MAT ? null : perte / 100;
 
 export interface FeedbackEntree {
   pos: Position;
@@ -153,11 +170,31 @@ export function noterCoup({ pos, move, meilleur, joue }: FeedbackEntree): Feedba
         ? 'bon'
         : SEUILS.find(([limite]) => perte <= limite)![1];
 
-  const texte = redigerTexte(verdict, perte, bilan);
-  return { verdict, perte, titre: TITRES[verdict], texte, bilan };
+  const texte = redigerTexte(verdict, perte, bilan, meilleur, joue);
+  return {
+    verdict,
+    perte,
+    titre: TITRES[verdict],
+    texte,
+    bilan,
+    evalMeilleur: meilleur,
+    evalJoue: joue,
+  };
 }
 
-function redigerTexte(verdict: Verdict, perte: number, bilan: BilanMateriel): string {
+function redigerTexte(
+  verdict: Verdict,
+  perte: number,
+  bilan: BilanMateriel,
+  meilleur: number,
+  joue: number,
+): string {
+  // un mat gagné ou concédé ne se raconte pas en points
+  if (perte >= SEUIL_MAT) {
+    if (joue <= -SEUIL_MAT) return 'Ce coup permet à l’adversaire de mater.';
+    if (meilleur >= SEUIL_MAT) return 'Il y avait un mat à jouer, et ce coup le laisse échapper.';
+    return 'Ce coup change l’issue de la partie.';
+  }
   const pions = (perte / 100).toFixed(1).replace('.', ',');
   switch (verdict) {
     case 'brillant':

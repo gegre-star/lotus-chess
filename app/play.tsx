@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { ChessBoard, type SquareBadge } from '../src/components/ChessBoard';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ChessBoard, type Arrow, type SquareBadge } from '../src/components/ChessBoard';
 import { CoachBubble, type BubbleTone } from '../src/components/CoachBubble';
 import { Action, ActionBar, Button, Dialog, ListItem } from '../src/components/UI';
 import { C, S } from '../src/components/theme';
@@ -10,7 +10,7 @@ import { finishGame } from '../src/chess/progress';
 import { chooseMove, hangingSquare, updateElo } from '../src/chess/ai';
 import { createEngine } from '../src/analysis';
 import { revoirPartie, type CoupRevu } from '../src/analysis/review';
-import type { Verdict } from '../src/chess/coaching';
+import { perteEnPions, type Verdict } from '../src/chess/coaching';
 import {
   START_FEN,
   castleByRook,
@@ -71,6 +71,7 @@ export default function PlayScreen() {
   const { progress, update } = useProgress();
   const [game, setGame] = useState<GameState | null>(null);
   const [review, setReview] = useState<CoupRevu[] | null>(null);
+  const [revueIndex, setRevueIndex] = useState(0);
   const [analysing, setAnalysing] = useState<string | null>(null);
   // un seul moteur pour tout l'écran : le démarrer coûte le chargement du wasm
   const engine = useRef<ReturnType<typeof createEngine> | null>(null);
@@ -190,6 +191,20 @@ export default function PlayScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game?.position, game?.over, applyMove]);
 
+  /**
+   * Position avant chaque demi-coup de la partie.
+   *
+   * `positionsRevue[n]` est la position telle qu'elle était avant le n-ième
+   * demi-coup — c'est celle où le joueur avait encore le choix, donc la seule
+   * sur laquelle montrer une alternative ait du sens.
+   */
+  const positionsRevue = useMemo(() => {
+    if (!game) return [];
+    const suite: Position[] = [parseFEN(START_FEN)];
+    game.moves.forEach((m, i) => suite.push(makeMove(suite[i], m)));
+    return suite;
+  }, [game]);
+
   const onPressSquare = useCallback(
     (square: number) => {
       setGame((g) => {
@@ -258,6 +273,7 @@ export default function PlayScreen() {
         },
       );
       setReview(revue);
+      setRevueIndex(0);
     } finally {
       setAnalysing(null);
     }
@@ -292,6 +308,12 @@ export default function PlayScreen() {
   // ---- analyse de la partie ----
   if (review) {
     const good = review.filter((r) => r.verdict === 'bon' || r.verdict === 'brillant').length;
+    const courant = review[Math.min(revueIndex, review.length - 1)];
+    // on affiche la position **avant** le coup : c'est celle où l'élève avait
+    // le choix, donc la seule où montrer une alternative a du sens
+    const avant = positionsRevue[courant.ply - 1] ?? parseFEN(START_FEN);
+    const fautif = courant.verdict !== 'bon' && courant.verdict !== 'brillant';
+
     return (
       <ScrollView style={S.screen} contentContainerStyle={{ paddingBottom: 28 }}>
         <CoachBubble
@@ -302,21 +324,73 @@ export default function PlayScreen() {
               : 'Partie très propre !'
           }`}
         />
+
+        <View style={styles.boardWrap}>
+          <ChessBoard
+            position={avant}
+            size={boardSize}
+            theme={progress.settings.board}
+            showCoords={progress.settings.coords}
+            flipped={game.side === 'b'}
+            arrows={flechesRevue(courant, fautif)}
+          />
+        </View>
+
+        <View style={[S.pad, { paddingTop: 10 }]}>
+          <Text style={styles.revueTitre}>
+            {courant.ply}. {courant.san} — {courant.titre}
+          </Text>
+          <Text style={styles.revueTexte}>{courant.texte}</Text>
+          {fautif && courant.meilleur ? (
+            <Text style={[styles.revueTexte, { color: C.green }]}>
+              Flèche verte : le coup qu’il fallait jouer. Flèche rouge : le tien.
+            </Text>
+          ) : null}
+        </View>
+
+        <ActionBar>
+          <Action
+            testID="revue-precedent"
+            label="◀ Précédent"
+            onPress={() => setRevueIndex((i) => Math.max(0, i - 1))}
+            disabled={revueIndex === 0}
+          />
+          <Action
+            testID="revue-suivant"
+            label="Suivant ▶"
+            primary
+            onPress={() => setRevueIndex((i) => Math.min(review.length - 1, i + 1))}
+            disabled={revueIndex >= review.length - 1}
+          />
+        </ActionBar>
+
         <View style={S.sectionRow}>
           <Text style={S.sectionTitle}>Tes coups</Text>
+          <Text style={S.sectionMeta}>
+            {revueIndex + 1}/{review.length}
+          </Text>
         </View>
         <View style={[S.pad, { gap: 6 }]}>
           {review.map((r, i) => (
-            <View key={`${r.san}-${i}`} style={[S.card, S.row]}>
+            <Pressable
+              key={`${r.san}-${i}`}
+              testID={`revue-coup-${i}`}
+              onPress={() => setRevueIndex(i)}
+              style={[
+                S.card,
+                S.row,
+                i === revueIndex ? { borderColor: C.green, borderWidth: 1 } : null,
+              ]}
+            >
               <View style={[styles.tag, { backgroundColor: VERDICT_COULEUR[r.verdict] }]} />
               <Text style={[S.itemTitle, { width: 70 }]}>
                 {i + 1}. {r.san}
               </Text>
               <Text style={[S.itemSub, { flex: 1 }]}>
                 {r.titre}
-                {r.perte > 30 ? ` · −${(r.perte / 100).toFixed(1).replace('.', ',')}` : ''}
+                {ecart(r.perte)}
               </Text>
-            </View>
+            </Pressable>
           ))}
         </View>
         <View style={[S.pad, { paddingTop: 14 }]}>
@@ -405,7 +479,30 @@ export default function PlayScreen() {
   );
 }
 
+/** Écart affiché à côté du verdict, muet quand il ne veut rien dire. */
+function ecart(perte: number): string {
+  const pions = perteEnPions(perte);
+  // au-delà du seuil c'est un mat qui se joue : « −989,4 » n'aurait aucun sens
+  if (pions === null) return ' · mat en jeu';
+  return pions > 0.3 ? ` · −${pions.toFixed(1).replace('.', ',')}` : '';
+}
+
+/**
+ * Flèches de la revue : en rouge le coup joué, en vert celui qu'il fallait
+ * jouer. Sur un bon coup on ne trace que le coup joué — deux flèches
+ * identiques n'apprendraient rien.
+ */
+function flechesRevue(coup: CoupRevu, fautif: boolean): Arrow[] {
+  const seg = (uci: string, couleur: string): Arrow => [uci.slice(0, 2), uci.slice(2, 4), couleur];
+  if (!fautif || !coup.meilleur || coup.meilleur === coup.joue) {
+    return [seg(coup.joue, C.green)];
+  }
+  return [seg(coup.joue, C.red), seg(coup.meilleur, C.green)];
+}
+
 const styles = StyleSheet.create({
+  revueTitre: { color: C.text, fontSize: 15, fontWeight: '800' },
+  revueTexte: { color: C.muted, fontSize: 13, marginTop: 4, lineHeight: 18 },
   boardWrap: { alignItems: 'center', paddingTop: 4 },
   moveList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   move: { color: C.muted, fontSize: 13, fontWeight: '700' },
