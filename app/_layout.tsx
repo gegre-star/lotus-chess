@@ -49,6 +49,10 @@ export default function ChessLayout() {
           tabBarLabelStyle: { fontSize: 11, fontWeight: '800' },
         }}
       >
+        {/* Route de repli : c'est un écran comme un autre pour le routeur, qui
+            lui ajoutait donc un onglet « +not-found » et tronquait les libellés
+            des cinq vrais. `href: null` la garde atteignable sans la lister. */}
+        <Tabs.Screen name="+not-found" options={{ href: null }} />
         <Tabs.Screen
           name="index"
           options={{ title: 'Accueil', tabBarIcon: icon('♟') }}

@@ -1,4 +1,11 @@
-import { bilanMateriel, noterCoup, piecesEnPrise, POINTS } from '../coaching';
+import {
+  bilanMateriel,
+  noterCoup,
+  perteEnPions,
+  piecesEnPrise,
+  POINTS,
+  SEUIL_MAT,
+} from '../coaching';
 import { findMove, parseFEN, squareFromName as at, type Position } from '../engine';
 
 const coup = (pos: Position, from: string, to: string) => {
@@ -132,5 +139,43 @@ describe('reprise réellement possible', () => {
     const pos = parseFEN('5k2/8/5b2/8/3N4/8/8/5R1K w - - 0 1');
     const b = bilanMateriel(pos, coup(pos, 'd4', 'e6'));
     expect(b.risque).toBe(0);
+  });
+});
+
+describe('perte quand un mat est en jeu', () => {
+  /**
+   * Régression : l'écran affichait « Gaffe · −989,4 ». Les scores de mat
+   * valent environ 100 000 ; les soustraire donne des écarts en centaines de
+   * pions, qui ne décrivent rien. Au-delà du seuil, on parle de mat.
+   */
+  const pos = parseFEN('4k3/8/8/4p3/8/5N2/8/4K3 w - - 0 1');
+  const move = coup(pos, 'f3', 'e5');
+
+  it('n’exprime plus la perte en pions au-delà du seuil', () => {
+    expect(perteEnPions(99940)).toBeNull();
+    expect(perteEnPions(SEUIL_MAT)).toBeNull();
+  });
+
+  it('la garde en pions en deçà', () => {
+    expect(perteEnPions(250)).toBeCloseTo(2.5);
+    expect(perteEnPions(0)).toBe(0);
+  });
+
+  it('dit qu’un mat a été laissé échapper', () => {
+    const f = noterCoup({ pos, move, meilleur: 99997, joue: 40 });
+    expect(f.verdict).toBe('gaffe');
+    expect(f.texte).toContain('mat à jouer');
+    expect(f.texte).not.toMatch(/\d+,\d/);
+  });
+
+  it('dit qu’un mat est concédé', () => {
+    const f = noterCoup({ pos, move, meilleur: 40, joue: -99997 });
+    expect(f.texte).toContain('permet à l’adversaire de mater');
+  });
+
+  it('conserve les évaluations reçues, pour que l’écran puisse trancher', () => {
+    const f = noterCoup({ pos, move, meilleur: 300, joue: 120 });
+    expect(f.evalMeilleur).toBe(300);
+    expect(f.evalJoue).toBe(120);
   });
 });
