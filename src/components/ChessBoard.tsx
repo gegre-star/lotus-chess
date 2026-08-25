@@ -6,7 +6,7 @@ import {
   FILES,
   fileOf,
   findKing,
-  gameStatus,
+  inCheck,
   rankOf,
   squareFromName,
   squareName,
@@ -115,10 +115,13 @@ export function ChessBoard({
     return map;
   }, [targets]);
 
-  const checkedKing = useMemo(() => {
-    const st = gameStatus(position);
-    return st === 'check' || st === 'mate' ? findKing(position, position.turn) : -1;
-  }, [position]);
+  // on interroge `inCheck` plutôt que `gameStatus` : un statut de nulle
+  // (matériel insuffisant, 50 coups) masquerait le roi en échec, et cela évite
+  // de générer tous les coups légaux à chaque rendu
+  const checkedKing = useMemo(
+    () => (inCheck(position, position.turn) ? findKing(position, position.turn) : -1),
+    [position],
+  );
 
   // rangée 8 en haut, sauf si l'échiquier est retourné
   const squares: number[] = [];

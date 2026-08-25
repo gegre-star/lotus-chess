@@ -24,6 +24,10 @@ export interface Position {
   castling: CastlingRights;
   /** Case de prise en passant, ou -1. */
   ep: number;
+  /** Demi-coups depuis la dernière prise ou poussée de pion (règle des 50 coups). */
+  halfmove: number;
+  /** Numéro du coup, incrémenté après chaque coup des noirs. */
+  fullmove: number;
 }
 
 export interface Move {
@@ -36,7 +40,17 @@ export interface Move {
   doublePush?: boolean;
 }
 
-export type GameStatus = 'ok' | 'check' | 'mate' | 'stalemate';
+export type GameStatus =
+  | 'ok'
+  | 'check'
+  | 'mate'
+  | 'stalemate'
+  /** Nulle par la règle des 50 coups. */
+  | 'draw-fifty'
+  /** Nulle par matériel insuffisant pour mater. */
+  | 'draw-material'
+  /** Nulle par triple répétition de la position. */
+  | 'draw-repetition';
 
 export const FILES = 'abcdefgh';
 export const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -57,7 +71,7 @@ const typeOf = (p: Piece): PieceType => p.toUpperCase() as PieceType;
 
 export function parseFEN(fen: string): Position {
   const parts = fen.trim().split(/\s+/);
-  const [placement, turn, castling, ep] = parts;
+  const [placement, turn, castling, ep, halfmove, fullmove] = parts;
   const board: (Piece | null)[] = new Array(64).fill(null);
   placement.split('/').forEach((row, i) => {
     const rank = 7 - i;
@@ -81,6 +95,8 @@ export function parseFEN(fen: string): Position {
       q: castling.includes('q'),
     },
     ep: ep && ep !== '-' ? squareFromName(ep) : -1,
+    halfmove: Number(halfmove ?? 0) || 0,
+    fullmove: Number(fullmove ?? 1) || 1,
   };
 }
 
@@ -105,7 +121,8 @@ export function toFEN(pos: Position): string {
   }
   const c = pos.castling;
   const rights = `${c.K ? 'K' : ''}${c.Q ? 'Q' : ''}${c.k ? 'k' : ''}${c.q ? 'q' : ''}` || '-';
-  return `${placement} ${pos.turn} ${rights} ${pos.ep >= 0 ? squareName(pos.ep) : '-'} 0 1`;
+  const ep = pos.ep >= 0 ? squareName(pos.ep) : '-';
+  return `${placement} ${pos.turn} ${rights} ${ep} ${pos.halfmove} ${pos.fullmove}`;
 }
 
 const clone = (p: Position): Position => ({
@@ -113,6 +130,8 @@ const clone = (p: Position): Position => ({
   turn: p.turn,
   castling: { ...p.castling },
   ep: p.ep,
+  halfmove: p.halfmove,
+  fullmove: p.fullmove,
 });
 
 const KNIGHT_OFFSETS: readonly [number, number][] = [
@@ -332,6 +351,10 @@ export function makeMove(pos: Position, move: Move): Position {
   clearRight(move.from);
   clearRight(move.to);
 
+  // la pendule des 50 coups repart à zéro sur toute prise ou tout coup de pion
+  next.halfmove = type === 'P' || move.captured || move.enPassant ? 0 : pos.halfmove + 1;
+  if (me === 'b') next.fullmove = pos.fullmove + 1;
+
   next.turn = me === 'w' ? 'b' : 'w';
   return next;
 }
@@ -355,10 +378,64 @@ export function findMove(
   );
 }
 
-export function gameStatus(pos: Position): GameStatus {
+/**
+ * Le matériel restant permet-il encore de mater ?
+ *
+ * Cas de nulle immédiate reconnus par la FIDE : roi contre roi, roi et fou
+ * contre roi, roi et cavalier contre roi, et roi et fou contre roi et fou
+ * lorsque les deux fous vont sur des cases de même couleur.
+ */
+export function insufficientMaterial(pos: Position): boolean {
+  const minor: { color: Color; square: number }[] = [];
+  for (let s = 0; s < 64; s += 1) {
+    const p = pos.board[s];
+    if (!p) continue;
+    const type = typeOf(p);
+    if (type === 'K') continue;
+    // un pion, une tour ou une dame suffisent toujours à mater
+    if (type === 'P' || type === 'R' || type === 'Q') return false;
+    minor.push({ color: colorOf(p) as Color, square: s });
+  }
+  if (minor.length <= 1) return true;
+  if (minor.length === 2) {
+    const [a, b] = minor;
+    const bothBishops =
+      typeOf(pos.board[a.square] as Piece) === 'B' && typeOf(pos.board[b.square] as Piece) === 'B';
+    const sameSquareColor =
+      (fileOf(a.square) + rankOf(a.square)) % 2 === (fileOf(b.square) + rankOf(b.square)) % 2;
+    return bothBishops && a.color !== b.color && sameSquareColor;
+  }
+  return false;
+}
+
+/**
+ * Signature d'une position pour la règle de répétition.
+ *
+ * Deux positions se répètent si les pièces, le trait, les droits de roque et
+ * la prise en passant possible coïncident — les pendules n'entrent pas en
+ * compte, d'où la troncature des deux derniers champs du FEN.
+ */
+export const positionKey = (pos: Position): string =>
+  toFEN(pos).split(' ').slice(0, 4).join(' ');
+
+/**
+ * Statut de la position.
+ *
+ * `history` contient les signatures des positions déjà rencontrées dans la
+ * partie, celle-ci comprise, et sert à détecter la triple répétition. Le mat
+ * et le pat priment sur les nulles de pendule : une partie qui se termine par
+ * un mat au 50e coup reste un mat.
+ */
+export function gameStatus(pos: Position, history: string[] = []): GameStatus {
   const moves = legalMoves(pos);
   const check = inCheck(pos, pos.turn);
   if (moves.length === 0) return check ? 'mate' : 'stalemate';
+  if (insufficientMaterial(pos)) return 'draw-material';
+  if (pos.halfmove >= 100) return 'draw-fifty';
+  if (history.length > 0) {
+    const key = positionKey(pos);
+    if (history.filter((h) => h === key).length >= 3) return 'draw-repetition';
+  }
   return check ? 'check' : 'ok';
 }
 
@@ -367,8 +444,13 @@ const FRENCH: Record<PieceType, string> = { K: 'R', Q: 'D', R: 'T', B: 'F', N: '
 
 export function toSAN(before: Position, move: Move, after?: Position): string {
   const resulting = after ?? makeMove(before, move);
-  const st = gameStatus(resulting);
-  const suffix = st === 'mate' ? '#' : st === 'check' ? '+' : '';
+  // on lit l'échec directement : un statut de nulle (matériel, 50 coups)
+  // masquerait le « + » alors que le coup donne bien échec
+  const suffix = inCheck(resulting, resulting.turn)
+    ? legalMoves(resulting).length === 0
+      ? '#'
+      : '+'
+    : '';
 
   if (move.castle) return `${move.castle === 'K' ? 'O-O' : 'O-O-O'}${suffix}`;
 
