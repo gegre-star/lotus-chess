@@ -37,11 +37,16 @@ interface ActionProps {
   onPress: () => void;
   primary?: boolean;
   disabled?: boolean;
+  /** Identifiant stable : le libellé change avec l'état, pas lui. */
+  testID?: string;
 }
 
-export function Action({ label, onPress, primary, disabled }: ActionProps) {
+export function Action({ label, onPress, primary, disabled, testID }: ActionProps) {
   return (
     <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [

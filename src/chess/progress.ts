@@ -36,6 +36,8 @@ export interface Progress {
   draws: number;
   sprintBest: number;
   lessons: Record<string, boolean>;
+  /** Exercices pratiques réussis, par identifiant. */
+  exercises: Record<string, boolean>;
   puzzles: Record<string, boolean>;
   trophies: Record<string, boolean>;
   seenGames: Record<string, boolean>;
@@ -53,6 +55,7 @@ export const emptyProgress = (): Progress => ({
   draws: 0,
   sprintBest: 0,
   lessons: {},
+  exercises: {},
   puzzles: {},
   trophies: {},
   seenGames: {},
@@ -105,6 +108,15 @@ export function withTrophies(p: Progress): Awarded {
 
 export const addXP = (p: Progress, amount: number): Awarded =>
   withTrophies({ ...p, xp: p.xp + Math.max(0, amount) });
+
+/** Marque un exercice réussi et crédite les points correspondants. */
+export function completeExercise(p: Progress, exerciseId: string, points: number): Awarded {
+  return withTrophies({
+    ...p,
+    xp: p.xp + points,
+    exercises: { ...p.exercises, [exerciseId]: true },
+  });
+}
 
 export function completeLesson(p: Progress, lessonId: string): Awarded {
   const first = !p.lessons[lessonId];
@@ -183,6 +195,8 @@ export function normalize(raw: unknown): Progress {
     ...data,
     settings: { ...base.settings, ...(data.settings ?? {}) },
     lessons: data.lessons ?? {},
+    // absent des sauvegardes antérieures aux exercices
+    exercises: data.exercises ?? {},
     puzzles: data.puzzles ?? {},
     trophies: data.trophies ?? {},
     seenGames: data.seenGames ?? {},

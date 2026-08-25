@@ -7,7 +7,10 @@ import { C, S } from '../src/components/theme';
 import { useProgress } from '../src/chess/ProgressContext';
 import { BOTS, type Bot } from '../src/chess/content';
 import { finishGame } from '../src/chess/progress';
-import { chooseMove, hangingSquare, reviewGame, updateElo, type ReviewedMove } from '../src/chess/ai';
+import { chooseMove, hangingSquare, updateElo } from '../src/chess/ai';
+import { createEngine } from '../src/analysis';
+import { revoirPartie, type CoupRevu } from '../src/analysis/review';
+import type { Verdict } from '../src/chess/coaching';
 import {
   START_FEN,
   colorOf,
@@ -32,19 +35,18 @@ interface GameState {
   sans: string[];
   selected: number | null;
   lastMove: Move | null;
-  thinking: boolean;
   over: boolean;
   message: string;
   tone: BubbleTone;
   badges: Record<number, SquareBadge>;
 }
 
-const QUALITY_LABEL: Record<ReviewedMove['quality'], { text: string; color: string }> = {
-  best: { text: 'Meilleur coup', color: C.green },
-  good: { text: 'Bon coup', color: C.blue },
-  inaccuracy: { text: 'Imprécision', color: C.gold },
-  mistake: { text: 'Erreur', color: '#d2723a' },
-  blunder: { text: 'Gaffe', color: C.red },
+const VERDICT_COULEUR: Record<Verdict, string> = {
+  brillant: C.gold,
+  bon: C.green,
+  imprecision: C.blue,
+  erreur: '#d2723a',
+  gaffe: C.red,
 };
 
 const newGame = (bot: Bot, side: Color): GameState => ({
@@ -56,7 +58,6 @@ const newGame = (bot: Bot, side: Color): GameState => ({
   sans: [],
   selected: null,
   lastMove: null,
-  thinking: false,
   over: false,
   message: `${bot.nom} : « ${bot.say} »`,
   tone: 'neutral',
@@ -67,16 +68,25 @@ export default function PlayScreen() {
   const { width } = useWindowDimensions();
   const { progress, update } = useProgress();
   const [game, setGame] = useState<GameState | null>(null);
-  const [review, setReview] = useState<ReviewedMove[] | null>(null);
+  const [review, setReview] = useState<CoupRevu[] | null>(null);
+  const [analysing, setAnalysing] = useState<string | null>(null);
+  // un seul moteur pour tout l'écran : le démarrer coûte le chargement du wasm
+  const engine = useRef<ReturnType<typeof createEngine> | null>(null);
   const [endDialog, setEndDialog] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const boardSize = Math.min(width - 8, 460);
   const botColor = (g: GameState): Color => (g.side === 'w' ? 'b' : 'w');
+  // état dérivé plutôt que stocké : c'est vrai exactement quand le trait est
+  // au bot, il n'y a donc rien à synchroniser
+  const botPense = Boolean(game && !game.over && game.position.turn === botColor(game));
 
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      // le worker Stockfish survivrait au démontage de l'écran
+      engine.current?.dispose();
+      engine.current = null;
     },
     [],
   );
@@ -154,26 +164,34 @@ export default function PlayScreen() {
   );
 
   // fait jouer l'ordinateur dès que c'est son tour
+  /**
+   * Le bot joue dès que le trait lui revient.
+   *
+   * L'effet ne dépend que de la position et de la fin de partie. Il dépendait
+   * autrefois de `game` tout entier tout en appelant `setGame` dès sa première
+   * ligne : chaque exécution changeait sa propre dépendance, relançait l'effet,
+   * et le nettoyage annulait le minuteur avant qu'il ne se déclenche. Le bot ne
+   * jouait donc jamais et la partie restait bloquée après le premier coup.
+   */
   useEffect(() => {
-    if (!game || game.over || game.position.turn !== botColor(game)) return;
-    setGame((g) => (g ? { ...g, thinking: true, message: `${g.bot.nom} réfléchit…` } : g));
-    timer.current = setTimeout(() => {
+    if (!game || game.over || game.position.turn !== botColor(game)) return undefined;
+    const handle = setTimeout(() => {
       setGame((g) => {
         if (!g || g.over || g.position.turn !== (g.side === 'w' ? 'b' : 'w')) return g;
         const move = chooseMove(g.position, { depth: g.bot.depth, gaffe: g.bot.gaffe });
-        if (!move) return { ...g, thinking: false };
-        return { ...applyMove(g, move), thinking: false };
+        if (!move) return g;
+        return applyMove(g, move);
       });
     }, 120);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [game, applyMove]);
+    timer.current = handle;
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game?.position, game?.over, applyMove]);
 
   const onPressSquare = useCallback(
     (square: number) => {
       setGame((g) => {
-        if (!g || g.over || g.thinking) return g;
+        if (!g || g.over || g.position.turn !== g.side) return g;
         if (g.position.turn !== g.side) return g;
 
         if (g.selected !== null) {
@@ -192,7 +210,7 @@ export default function PlayScreen() {
 
   const undo = useCallback(() => {
     setGame((g) => {
-      if (!g || g.thinking || g.history.length === 0) return g;
+      if (!g || g.history.length === 0) return g;
       let index = g.history.length - 1;
       // on remonte aussi le coup de l'ordinateur, pour rendre la main au joueur
       if (index > 0 && g.history[index].turn !== g.side) index -= 1;
@@ -210,9 +228,26 @@ export default function PlayScreen() {
     });
   }, []);
 
-  const analyse = useCallback(() => {
+  const analyse = useCallback(async () => {
     if (!game) return;
-    setReview(reviewGame(parseFEN(START_FEN), game.moves, game.sans, game.side));
+    if (!engine.current) engine.current = createEngine();
+    setAnalysing('Analyse en cours…');
+    try {
+      const revue = await revoirPartie(
+        engine.current,
+        parseFEN(START_FEN),
+        game.moves,
+        game.sans,
+        game.side,
+        {
+          depth: 10,
+          onProgress: (fait, total) => setAnalysing(`Analyse ${fait}/${total}`),
+        },
+      );
+      setReview(revue);
+    } finally {
+      setAnalysing(null);
+    }
   }, [game]);
 
   // ---- choix de l'adversaire ----
@@ -243,13 +278,13 @@ export default function PlayScreen() {
 
   // ---- analyse de la partie ----
   if (review) {
-    const good = review.filter((r) => r.quality === 'best' || r.quality === 'good').length;
+    const good = review.filter((r) => r.verdict === 'bon' || r.verdict === 'brillant').length;
     return (
       <ScrollView style={S.screen} contentContainerStyle={{ paddingBottom: 28 }}>
         <CoachBubble
           coach="robi"
           text={`${good} bons coups sur ${review.length}. ${
-            review.some((r) => r.quality === 'blunder')
+            review.some((r) => r.verdict === 'gaffe')
               ? 'Regarde les gaffes : c’est là que la partie bascule.'
               : 'Partie très propre !'
           }`}
@@ -260,13 +295,13 @@ export default function PlayScreen() {
         <View style={[S.pad, { gap: 6 }]}>
           {review.map((r, i) => (
             <View key={`${r.san}-${i}`} style={[S.card, S.row]}>
-              <View style={[styles.tag, { backgroundColor: QUALITY_LABEL[r.quality].color }]} />
+              <View style={[styles.tag, { backgroundColor: VERDICT_COULEUR[r.verdict] }]} />
               <Text style={[S.itemTitle, { width: 70 }]}>
                 {i + 1}. {r.san}
               </Text>
               <Text style={[S.itemSub, { flex: 1 }]}>
-                {QUALITY_LABEL[r.quality].text}
-                {r.loss > 0.3 ? ` · −${r.loss}` : ''}
+                {r.titre}
+                {r.perte > 30 ? ` · −${(r.perte / 100).toFixed(1).replace('.', ',')}` : ''}
               </Text>
             </View>
           ))}
@@ -282,7 +317,11 @@ export default function PlayScreen() {
   return (
     <View style={S.screen}>
       <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
-        <CoachBubble coach="robi" text={game.message} tone={game.tone} />
+        <CoachBubble
+          coach="robi"
+          text={botPense ? `${game.bot.nom} réfléchit…` : game.message}
+          tone={botPense ? 'neutral' : game.tone}
+        />
         <View style={styles.boardWrap}>
           <ChessBoard
             position={game.position}
@@ -315,9 +354,14 @@ export default function PlayScreen() {
         </View>
       </ScrollView>
       <ActionBar>
-        <Action label="Annuler" onPress={undo} disabled={game.history.length === 0} />
-        <Action label={game.over ? 'Analyser' : 'Nouvelle'} primary onPress={game.over ? analyse : () => setGame(newGame(game.bot, game.side))} />
-        <Action label="Quitter" onPress={() => setGame(null)} />
+        <Action label="Annuler" onPress={undo} disabled={game.history.length === 0 || analysing !== null} />
+        <Action
+          label={analysing ?? (game.over ? 'Analyser' : 'Nouvelle')}
+          primary
+          disabled={analysing !== null}
+          onPress={game.over ? analyse : () => setGame(newGame(game.bot, game.side))}
+        />
+        <Action label="Quitter" onPress={() => setGame(null)} disabled={analysing !== null} />
       </ActionBar>
 
       <Dialog

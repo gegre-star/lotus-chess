@@ -6,9 +6,10 @@ import {
   FILES,
   fileOf,
   findKing,
-  gameStatus,
+  inCheck,
   rankOf,
   squareFromName,
+  squareName,
   type Move,
   type Position,
 } from '../chess/engine';
@@ -114,10 +115,13 @@ export function ChessBoard({
     return map;
   }, [targets]);
 
-  const checkedKing = useMemo(() => {
-    const st = gameStatus(position);
-    return st === 'check' || st === 'mate' ? findKing(position, position.turn) : -1;
-  }, [position]);
+  // on interroge `inCheck` plutôt que `gameStatus` : un statut de nulle
+  // (matériel insuffisant, 50 coups) masquerait le roi en échec, et cela évite
+  // de générer tous les coups légaux à chaque rendu
+  const checkedKing = useMemo(
+    () => (inCheck(position, position.turn) ? findKing(position, position.turn) : -1),
+    [position],
+  );
 
   // rangée 8 en haut, sauf si l'échiquier est retourné
   const squares: number[] = [];
@@ -145,6 +149,7 @@ export function ChessBoard({
         return (
           <Pressable
             key={square}
+            testID={`square-${squareName(square)}`}
             onPress={onPressSquare ? () => onPressSquare(square) : undefined}
             style={[
               styles.square,
@@ -211,17 +216,22 @@ export function ChessBoard({
         );
       })}
 
+      {/* Les flèches sont purement décoratives. Sans `pointerEvents="none"`, ce
+          calque recouvre l'échiquier et absorbe tous les touchers : les cases
+          deviennent intouchables dès qu'une flèche est affichée. */}
       {arrows.length > 0 ? (
-        <Svg style={StyleSheet.absoluteFill} width={size} height={size} viewBox="0 0 8 8">
-          {arrows.map(([from, to, color], i) => (
-            <Path
-              key={`${from}${to}${i}`}
-              d={arrowPath(squareFromName(from), squareFromName(to), flipped)}
-              fill={color ?? ARROW_COLOR}
-              opacity={0.85}
-            />
-          ))}
-        </Svg>
+        <View pointerEvents="none" style={StyleSheet.absoluteFill} testID="arrow-overlay">
+          <Svg width={size} height={size} viewBox="0 0 8 8">
+            {arrows.map(([from, to, color], i) => (
+              <Path
+                key={`${from}${to}${i}`}
+                d={arrowPath(squareFromName(from), squareFromName(to), flipped)}
+                fill={color ?? ARROW_COLOR}
+                opacity={0.85}
+              />
+            ))}
+          </Svg>
+        </View>
       ) : null}
     </View>
   );

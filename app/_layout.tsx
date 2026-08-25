@@ -62,6 +62,10 @@ export default function ChessLayout() {
           options={{ title: 'Apprendre', tabBarIcon: icon('🎓') }}
         />
         <Tabs.Screen
+          name="train"
+          options={{ title: 'S’entraîner', tabBarIcon: icon('⚖️') }}
+        />
+        <Tabs.Screen
           name="play"
           options={{ title: 'Jouer', tabBarIcon: icon('⚔') }}
         />
