@@ -19,6 +19,7 @@ import {
   inCheck,
   gameStatus,
   makeMove,
+  legalMoves,
   movesFrom,
   parseFEN,
   squareName,
@@ -38,6 +39,8 @@ interface GameState {
   selected: number | null;
   lastMove: Move | null;
   over: boolean;
+  /** Vrai après un coup refusé alors que le roi est en échec. */
+  aideEchec: boolean;
   message: string;
   tone: BubbleTone;
   badges: Record<number, SquareBadge>;
@@ -61,6 +64,7 @@ const newGame = (bot: Bot, side: Color): GameState => ({
   selected: null,
   lastMove: null,
   over: false,
+  aideEchec: false,
   message: `${bot.nom} : « ${bot.say} »`,
   tone: 'neutral',
   badges: {},
@@ -205,6 +209,20 @@ export default function PlayScreen() {
     return suite;
   }, [game]);
 
+  /**
+   * Pastilles affichées : celles de la partie, plus les pièces capables de
+   * parer un échec quand l'aide a été déclenchée.
+   */
+  const badgesEchiquier = useMemo((): Record<number, SquareBadge> => {
+    if (!game) return {};
+    if (!game.aideEchec || game.over) return game.badges;
+    const out: Record<number, SquareBadge> = { ...game.badges };
+    legalMoves(game.position).forEach((m) => {
+      out[m.from] = 'good';
+    });
+    return out;
+  }, [game]);
+
   const onPressSquare = useCallback(
     (square: number) => {
       setGame((g) => {
@@ -215,22 +233,36 @@ export default function PlayScreen() {
           const candidates = movesFrom(g.position, g.selected).filter((m) => m.to === square);
           if (candidates.length > 0) {
             const move = candidates.find((m) => m.promotion === 'Q') ?? candidates[0];
-            return applyMove(g, move);
+            return { ...applyMove(g, move), aideEchec: false };
           }
           // toucher sa propre tour est l'autre geste courant pour roquer
           const roque = castleByRook(g.position, g.selected, square);
-          if (roque) return applyMove(g, roque);
+          if (roque) return { ...applyMove(g, roque), aideEchec: false };
         }
 
         const piece = g.position.board[square];
         const sien = colorOf(piece) === g.position.turn;
-        // un refus muet laisse croire que le coup est interdit sans dire
-        // pourquoi ; l'échec est de loin la raison la plus fréquente
-        const message =
-          g.selected !== null && !sien && inCheck(g.position, g.position.turn)
-            ? 'Ton roi est en échec : il faut d’abord parer la menace.'
-            : g.message;
-        return { ...g, selected: sien ? square : null, message };
+
+        // Un refus muet laisse croire que le coup est interdit sans dire
+        // pourquoi. Et sur un échec, annoncer la menace ne suffit pas : quand
+        // une seule pièce peut parer, un débutant la cherche, ne la trouve pas
+        // et conclut qu'il est mat. On compte donc les réponses, et on montre
+        // les pièces capables de jouer — mais seulement après un premier
+        // essai manqué, comme les indices des exercices.
+        const refus = g.selected !== null && !sien;
+        if (refus && inCheck(g.position, g.position.turn)) {
+          const parades = new Set(legalMoves(g.position).map((m) => m.from));
+          return {
+            ...g,
+            selected: null,
+            aideEchec: true,
+            message:
+              parades.size === 1
+                ? 'Ton roi est en échec, et une seule pièce peut te sauver — elle est marquée.'
+                : `Ton roi est en échec. ${parades.size} pièces peuvent parer : elles sont marquées.`,
+          };
+        }
+        return { ...g, selected: sien ? square : null };
       });
     },
     [applyMove],
@@ -419,7 +451,7 @@ export default function PlayScreen() {
             selected={game.selected}
             targets={game.selected !== null ? movesFrom(game.position, game.selected) : []}
             lastMove={game.lastMove}
-            badges={game.badges}
+            badges={badgesEchiquier}
             onPressSquare={onPressSquare}
           />
         </View>

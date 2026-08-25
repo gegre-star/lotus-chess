@@ -195,3 +195,40 @@ describe('roque désigné par la tour', () => {
     expect(castleByRook(pos, at('e1'), at('d4'))).toBeUndefined();
   });
 });
+
+describe('parades disponibles sous échec', () => {
+  /**
+   * Position réellement rencontrée en partie, signalée comme « échec et mat »
+   * alors qu'elle ne l'était pas : il restait un unique coup, difficile à
+   * trouver. C'est ce que l'aide à l'échec sert à montrer.
+   */
+  const fen = '2k5/rp5p/2bR2p1/p1R2pn1/2B5/1P6/2P2PPP/4r1K1 w - - 0 28';
+
+  it('n’est pas un mat', () => {
+    expect(gameStatus(parseFEN(fen))).toBe('check');
+  });
+
+  it('n’offre qu’un seul coup, et c’est un blocage du fou', () => {
+    const pos = parseFEN(fen);
+    const coups = legalMoves(pos);
+    expect(coups).toHaveLength(1);
+    expect(coups[0].from).toBe(at('c4'));
+    expect(coups[0].to).toBe(at('f1'));
+  });
+
+  it('désigne une seule pièce capable de parer', () => {
+    const pos = parseFEN(fen);
+    const parades = new Set(legalMoves(pos).map((m) => m.from));
+    expect(parades.size).toBe(1);
+    expect(parades.has(at('c4'))).toBe(true);
+  });
+
+  it('compte les pièces, pas les coups', () => {
+    // échec de la tour e8 : le roi peut fuir, et la tour a2 peut bloquer en e2.
+    // Deux pièces différentes, alors qu'un roi seul offrirait plusieurs coups
+    // sans que cela fasse plus d'une pièce à montrer.
+    const pos = parseFEN('4r2k/8/8/8/8/8/R7/4K3 w - - 0 1');
+    const parades = new Set(legalMoves(pos).map((m) => m.from));
+    expect(parades).toEqual(new Set([at('e1'), at('a2')]));
+  });
+});
