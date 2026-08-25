@@ -11,7 +11,7 @@
  * recherches simultanées.
  */
 import { emptyAccumulator, readBestMove, readInfo, toAnalysis, type UciAccumulator } from './uci';
-import type { Analysis, AnalyseOptions, AnalysisEngine } from './types';
+import { ELO_MAX, ELO_MIN, type Analysis, type AnalyseOptions, type AnalysisEngine } from './types';
 
 /**
  * Chemin du worker, préfixé par la base de déploiement.
@@ -84,6 +84,15 @@ export function createStockfishEngine(url: string = workerUrl()): AnalysisEngine
     return new Promise<Analysis>((resolve, reject) => {
       current = { resolve, reject, acc: emptyAccumulator() };
       send('ucinewgame');
+      // la force se règle avant chaque recherche : la même instance sert tour
+      // à tour d'adversaire bridé et d'analyste à pleine force
+      if (options.elo === undefined) {
+        send('setoption name UCI_LimitStrength value false');
+      } else {
+        const elo = Math.min(ELO_MAX, Math.max(ELO_MIN, Math.round(options.elo)));
+        send('setoption name UCI_LimitStrength value true');
+        send(`setoption name UCI_Elo value ${elo}`);
+      }
       send(`position fen ${fen}`);
       send(options.movetime ? `go movetime ${options.movetime}` : `go depth ${options.depth ?? 12}`);
     });

@@ -5,7 +5,7 @@ import { CoachBubble, type BubbleTone } from '../src/components/CoachBubble';
 import { Action, ActionBar, Button, Dialog, ListItem } from '../src/components/UI';
 import { C, S } from '../src/components/theme';
 import { useProgress } from '../src/chess/ProgressContext';
-import { BOTS, type Bot } from '../src/chess/content';
+import { BOTS, STOCKFISH_NIVEAUX, type Bot } from '../src/chess/content';
 import { finishGame } from '../src/chess/progress';
 import { chooseMove, hangingSquare, updateElo } from '../src/chess/ai';
 import { createEngine } from '../src/analysis';
@@ -16,16 +16,20 @@ import {
   castleByRook,
   colorOf,
   findKing,
+  findMove,
   inCheck,
   gameStatus,
   makeMove,
   legalMoves,
   movesFrom,
   parseFEN,
+  squareFromName,
   squareName,
+  toFEN,
   toSAN,
   type Color,
   type Move,
+  type PieceType,
   type Position,
 } from '../src/chess/engine';
 
@@ -182,16 +186,44 @@ export default function PlayScreen() {
    */
   useEffect(() => {
     if (!game || game.over || game.position.turn !== botColor(game)) return undefined;
-    const handle = setTimeout(() => {
+    const bot = game.bot;
+    const fenAvant = toFEN(game.position);
+    let vivant = true;
+
+    const jouer = async () => {
+      let move: Move | null = null;
+
+      // Stockfish bridé à l'Elo choisi. Sur natif `createEngine` rend le
+      // minimax, qui ignore ce réglage : on le laisse alors jouer selon
+      // `depth` et `gaffe`, comme les personnages.
+      if (bot.stockfish) {
+        if (!engine.current) engine.current = createEngine();
+        if (engine.current.name === 'stockfish') {
+          try {
+            const a = await engine.current.analyse(fenAvant, { elo: bot.elo, movetime: 500 });
+            move = a.best ? coupDepuisUci(parseFEN(fenAvant), a.best) : null;
+          } catch {
+            move = null;
+          }
+        }
+      }
+      if (!move) move = chooseMove(parseFEN(fenAvant), { depth: bot.depth, gaffe: bot.gaffe });
+      if (!vivant || !move) return;
+
       setGame((g) => {
-        if (!g || g.over || g.position.turn !== (g.side === 'w' ? 'b' : 'w')) return g;
-        const move = chooseMove(g.position, { depth: g.bot.depth, gaffe: g.bot.gaffe });
-        if (!move) return g;
-        return applyMove(g, move);
+        // la position a pu changer pendant la réflexion : on ne joue un coup
+        // que dans la position pour laquelle il a été calculé
+        if (!g || g.over || toFEN(g.position) !== fenAvant) return g;
+        return { ...applyMove(g, move as Move), aideEchec: false };
       });
-    }, 120);
+    };
+
+    const handle = setTimeout(jouer, 120);
     timer.current = handle;
-    return () => clearTimeout(handle);
+    return () => {
+      vivant = false;
+      clearTimeout(handle);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game?.position, game?.over, applyMove]);
 
@@ -324,7 +356,7 @@ export default function PlayScreen() {
           <Text style={S.sectionMeta}>Ton classement : {progress.elo}</Text>
         </View>
         <View style={[S.pad, { gap: 8 }]}>
-          {BOTS.map((bot) => (
+          {BOTS.filter((b) => !b.stockfish).map((bot) => (
             <ListItem
               key={bot.id}
               title={`${bot.nom} · ${bot.elo}`}
@@ -333,6 +365,29 @@ export default function PlayScreen() {
             />
           ))}
         </View>
+
+        {/* Stockfish n'est pas un personnage de plus mais un moteur réglable :
+            chaque niveau démarre une partie avec la même identité et un Elo
+            différent. Il ne descend pas sous 1320 — d'où l'intérêt conservé
+            des personnages pour débuter. */}
+        {BOTS.filter((b) => b.stockfish).map((bot) => (
+          <View key={bot.id}>
+            <View style={S.sectionRow}>
+              <Text style={S.sectionTitle}>{bot.nom}</Text>
+              <Text style={S.sectionMeta}>{bot.say}</Text>
+            </View>
+            <View style={[S.pad, { gap: 8 }]}>
+              {STOCKFISH_NIVEAUX.map((niveau) => (
+                <ListItem
+                  key={niveau.elo}
+                  title={`${niveau.nom} · ${niveau.elo}`}
+                  subtitle={`Stockfish bridé à ${niveau.elo} Elo`}
+                  onPress={() => setGame(newGame({ ...bot, elo: niveau.elo }, 'w'))}
+                />
+              ))}
+            </View>
+          </View>
+        ))}
       </ScrollView>
     );
   }
@@ -509,6 +564,12 @@ export default function PlayScreen() {
       </Dialog>
     </View>
   );
+}
+
+/** Résout un coup UCI dans une position, en promouvant selon la lettre finale. */
+function coupDepuisUci(pos: Position, uci: string): Move | null {
+  const promo = uci.length > 4 ? (uci[4].toUpperCase() as PieceType) : undefined;
+  return findMove(pos, squareFromName(uci.slice(0, 2)), squareFromName(uci.slice(2, 4)), promo) ?? null;
 }
 
 /** Écart affiché à côté du verdict, muet quand il ne veut rien dire. */

@@ -39,7 +39,17 @@ export interface AnalyseOptions {
   depth?: number;
   /** Plafond de temps en millisecondes. */
   movetime?: number;
+  /**
+   * Force bridée, en Elo, quand le moteur sert d'adversaire plutôt que
+   * d'analyste. Stockfish n'accepte que 1320–3190 ; en dehors, la demande est
+   * ramenée dans cet intervalle. Absente, le moteur joue à pleine force.
+   */
+  elo?: number;
 }
+
+/** Bornes du réglage de force de Stockfish. */
+export const ELO_MIN = 1320;
+export const ELO_MAX = 3190;
 
 export interface AnalysisEngine {
   readonly name: 'stockfish' | 'local';
