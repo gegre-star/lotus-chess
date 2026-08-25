@@ -9,6 +9,7 @@ import {
   gameStatus,
   rankOf,
   squareFromName,
+  squareName,
   type Move,
   type Position,
 } from '../chess/engine';
@@ -145,6 +146,7 @@ export function ChessBoard({
         return (
           <Pressable
             key={square}
+            testID={`square-${squareName(square)}`}
             onPress={onPressSquare ? () => onPressSquare(square) : undefined}
             style={[
               styles.square,
@@ -211,17 +213,22 @@ export function ChessBoard({
         );
       })}
 
+      {/* Les flèches sont purement décoratives. Sans `pointerEvents="none"`, ce
+          calque recouvre l'échiquier et absorbe tous les touchers : les cases
+          deviennent intouchables dès qu'une flèche est affichée. */}
       {arrows.length > 0 ? (
-        <Svg style={StyleSheet.absoluteFill} width={size} height={size} viewBox="0 0 8 8">
-          {arrows.map(([from, to, color], i) => (
-            <Path
-              key={`${from}${to}${i}`}
-              d={arrowPath(squareFromName(from), squareFromName(to), flipped)}
-              fill={color ?? ARROW_COLOR}
-              opacity={0.85}
-            />
-          ))}
-        </Svg>
+        <View pointerEvents="none" style={StyleSheet.absoluteFill} testID="arrow-overlay">
+          <Svg width={size} height={size} viewBox="0 0 8 8">
+            {arrows.map(([from, to, color], i) => (
+              <Path
+                key={`${from}${to}${i}`}
+                d={arrowPath(squareFromName(from), squareFromName(to), flipped)}
+                fill={color ?? ARROW_COLOR}
+                opacity={0.85}
+              />
+            ))}
+          </Svg>
+        </View>
       ) : null}
     </View>
   );
