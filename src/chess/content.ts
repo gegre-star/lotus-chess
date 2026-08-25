@@ -97,6 +97,10 @@ export interface FamousGame {
   blancs: string;
   noirs: string;
   coups: LineMove[];
+  /** Camp du maître dont on cherche les coups. */
+  heros: 'w' | 'b';
+  /** Ce que la partie est censée apprendre, en une phrase. */
+  lecon: string;
 }
 
 export const SECTIONS: Section[] = [
@@ -2054,6 +2058,8 @@ export const GAMES: FamousGame[] = [
     "lieu": "Paris, 1858",
     "blancs": "Paul Morphy",
     "noirs": "Duc de Brunswick et Comte Isouard",
+    "heros": "w",
+    "lecon": "Développer vite, ouvrir les lignes, et faire payer un roi resté au centre.",
     "coups": [
       [
         "e2",
@@ -2195,6 +2201,8 @@ export const GAMES: FamousGame[] = [
     "lieu": "Londres, 1851",
     "blancs": "Adolf Anderssen",
     "noirs": "Lionel Kieseritzky",
+    "heros": "w",
+    "lecon": "Donner du matériel sans hésiter quand chaque coup gagne du temps sur le roi adverse.",
     "coups": [
       [
         "e2",
@@ -2384,6 +2392,8 @@ export const GAMES: FamousGame[] = [
     "lieu": "New York, 1956",
     "blancs": "Donald Byrne",
     "noirs": "Bobby Fischer (13 ans)",
+    "heros": "b",
+    "lecon": "Un joueur de treize ans donne sa dame : la position vaut parfois plus que le matériel.",
     "coups": [
         [
           "g1",
