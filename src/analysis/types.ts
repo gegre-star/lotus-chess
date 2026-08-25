@@ -49,8 +49,26 @@ export interface AnalysisEngine {
   dispose(): void;
 }
 
-/** Score ramené du point de vue des blancs, pour comparer deux analyses. */
+/** Valeur d'un mat, en centièmes de pion, avant décote de distance. */
+const MAT = 100000;
+
+/**
+ * Score ramené du point de vue des blancs, pour comparer deux analyses.
+ *
+ * `mate: 0` ne veut pas dire « pas de mat » mais « le camp au trait est maté
+ * en ce moment même » : c'est ce que répond le moteur sur une position déjà
+ * terminée. Le traiter comme les autres via `Math.sign` donnerait zéro et
+ * ferait passer un mat porté pour une gaffe — le coup gagnant serait noté
+ * comme le pire de la partie.
+ */
 export const whitePov = (a: Analysis, turn: 'w' | 'b'): number => {
-  const raw = a.mate !== null ? Math.sign(a.mate) * (100000 - Math.abs(a.mate)) : (a.cp ?? 0);
+  let raw: number;
+  if (a.mate === null) {
+    raw = a.cp ?? 0;
+  } else if (a.mate === 0) {
+    raw = -MAT;
+  } else {
+    raw = Math.sign(a.mate) * (MAT - Math.abs(a.mate));
+  }
   return turn === 'w' ? raw : -raw;
 };

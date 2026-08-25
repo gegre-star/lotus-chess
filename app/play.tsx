@@ -35,7 +35,6 @@ interface GameState {
   sans: string[];
   selected: number | null;
   lastMove: Move | null;
-  thinking: boolean;
   over: boolean;
   message: string;
   tone: BubbleTone;
@@ -59,7 +58,6 @@ const newGame = (bot: Bot, side: Color): GameState => ({
   sans: [],
   selected: null,
   lastMove: null,
-  thinking: false,
   over: false,
   message: `${bot.nom} : « ${bot.say} »`,
   tone: 'neutral',
@@ -79,6 +77,9 @@ export default function PlayScreen() {
 
   const boardSize = Math.min(width - 8, 460);
   const botColor = (g: GameState): Color => (g.side === 'w' ? 'b' : 'w');
+  // état dérivé plutôt que stocké : c'est vrai exactement quand le trait est
+  // au bot, il n'y a donc rien à synchroniser
+  const botPense = Boolean(game && !game.over && game.position.turn === botColor(game));
 
   useEffect(
     () => () => {
@@ -163,26 +164,34 @@ export default function PlayScreen() {
   );
 
   // fait jouer l'ordinateur dès que c'est son tour
+  /**
+   * Le bot joue dès que le trait lui revient.
+   *
+   * L'effet ne dépend que de la position et de la fin de partie. Il dépendait
+   * autrefois de `game` tout entier tout en appelant `setGame` dès sa première
+   * ligne : chaque exécution changeait sa propre dépendance, relançait l'effet,
+   * et le nettoyage annulait le minuteur avant qu'il ne se déclenche. Le bot ne
+   * jouait donc jamais et la partie restait bloquée après le premier coup.
+   */
   useEffect(() => {
-    if (!game || game.over || game.position.turn !== botColor(game)) return;
-    setGame((g) => (g ? { ...g, thinking: true, message: `${g.bot.nom} réfléchit…` } : g));
-    timer.current = setTimeout(() => {
+    if (!game || game.over || game.position.turn !== botColor(game)) return undefined;
+    const handle = setTimeout(() => {
       setGame((g) => {
         if (!g || g.over || g.position.turn !== (g.side === 'w' ? 'b' : 'w')) return g;
         const move = chooseMove(g.position, { depth: g.bot.depth, gaffe: g.bot.gaffe });
-        if (!move) return { ...g, thinking: false };
-        return { ...applyMove(g, move), thinking: false };
+        if (!move) return g;
+        return applyMove(g, move);
       });
     }, 120);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [game, applyMove]);
+    timer.current = handle;
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game?.position, game?.over, applyMove]);
 
   const onPressSquare = useCallback(
     (square: number) => {
       setGame((g) => {
-        if (!g || g.over || g.thinking) return g;
+        if (!g || g.over || g.position.turn !== g.side) return g;
         if (g.position.turn !== g.side) return g;
 
         if (g.selected !== null) {
@@ -201,7 +210,7 @@ export default function PlayScreen() {
 
   const undo = useCallback(() => {
     setGame((g) => {
-      if (!g || g.thinking || g.history.length === 0) return g;
+      if (!g || g.history.length === 0) return g;
       let index = g.history.length - 1;
       // on remonte aussi le coup de l'ordinateur, pour rendre la main au joueur
       if (index > 0 && g.history[index].turn !== g.side) index -= 1;
@@ -308,7 +317,11 @@ export default function PlayScreen() {
   return (
     <View style={S.screen}>
       <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
-        <CoachBubble coach="robi" text={game.message} tone={game.tone} />
+        <CoachBubble
+          coach="robi"
+          text={botPense ? `${game.bot.nom} réfléchit…` : game.message}
+          tone={botPense ? 'neutral' : game.tone}
+        />
         <View style={styles.boardWrap}>
           <ChessBoard
             position={game.position}

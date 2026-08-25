@@ -109,3 +109,28 @@ describe('pièces en prise', () => {
     expect(piecesEnPrise(pos, 'b')).toEqual([]);
   });
 });
+
+describe('reprise réellement possible', () => {
+  /**
+   * Régression : le calcul regardait si la case d'arrivée était attaquée
+   * géométriquement. Sur un mat, le roi « attaque » la dame qui vient de mater
+   * sans pouvoir la prendre — le coup gagnant s'accompagnait donc de « ta
+   * pièce peut être reprise ».
+   */
+  it('ne prétend pas qu’une pièce qui mate peut être reprise', () => {
+    // mat du berger après 1.e4 Cf6 2.Fc4 Cxe4 3.Dh5 Cc3 ; Dxf7 est mat, et le
+    // roi noir touche f7 sans pouvoir y aller
+    const pos = parseFEN('rnbqkb1r/pppppppp/8/7Q/2B5/2n5/PPPP1PPP/RNB1K1NR w KQkq - 2 4');
+    const b = bilanMateriel(pos, coup(pos, 'h5', 'f7'));
+    expect(b.risque).toBe(0);
+    expect(b.phrase).not.toContain('reprise');
+  });
+
+  it('ne compte pas un défenseur cloué comme une défense', () => {
+    // le fou f6 est cloué par la tour f1 face au roi f8 : il ne peut pas
+    // reprendre en d4, alors qu'il y est géométriquement braqué
+    const pos = parseFEN('5k2/8/5b2/8/3N4/8/8/5R1K w - - 0 1');
+    const b = bilanMateriel(pos, coup(pos, 'd4', 'e6'));
+    expect(b.risque).toBe(0);
+  });
+});

@@ -89,7 +89,11 @@ export function bilanMateriel(pos: Position, move: Move): BilanMateriel {
   const apres = makeMove(pos, move);
   const arrivee = apres.board[move.to];
   const valeurExposee = arrivee ? POINTS[typeOf(arrivee)] : 0;
-  const reprenable = isAttacked(apres, move.to, adverse);
+  // on cherche une reprise réellement jouable, pas une simple attaque
+  // géométrique : sur un mat l'adversaire n'a aucun coup, et un défenseur
+  // cloué ne défend rien. Annoncer « ta pièce peut être reprise » après un
+  // mat serait faux, et sur le coup qui gagne la partie.
+  const reprenable = legalMoves(apres).some((m) => m.to === move.to);
   const risque = reprenable ? valeurExposee : 0;
   const net = gagne - risque;
 
