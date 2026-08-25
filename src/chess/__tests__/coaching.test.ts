@@ -1,5 +1,6 @@
 import {
   bilanMateriel,
+  expliquerRefus,
   noterCoup,
   perteEnPions,
   piecesEnPrise,
@@ -177,5 +178,50 @@ describe('perte quand un mat est en jeu', () => {
     const f = noterCoup({ pos, move, meilleur: 300, joue: 120 });
     expect(f.evalMeilleur).toBe(300);
     expect(f.evalJoue).toBe(120);
+  });
+});
+
+describe('explication d’un coup refusé', () => {
+  const carre = (n: string) => at(n);
+
+  /**
+   * Position réellement rencontrée en partie, signalée comme un bug : le fou
+   * noir de d2 fait échec, et le roi ne peut pas le prendre parce que la tour
+   * de d8 le défend à travers toute la colonne. L'application avait raison,
+   * mais ne le disait pas — d'où « c'est un bug ».
+   */
+  const echecFouDefendu = parseFEN('3r3r/R5pp/4k3/5R2/P5PP/1P6/3b4/4K3 w - - 0 30');
+
+  it('dit qu’une pièce prise par le roi est défendue', () => {
+    const texte = expliquerRefus(echecFouDefendu, carre('e1'), carre('d2'));
+    expect(texte).toContain('défendue');
+    expect(texte).toContain('d2');
+  });
+
+  it('se tait sur un coup parfaitement légal', () => {
+    expect(expliquerRefus(echecFouDefendu, carre('e1'), carre('d1'))).toBeNull();
+  });
+
+  it('se tait quand la pièce ne se déplace pas ainsi', () => {
+    // le roi ne va pas de e1 à a8 : ce n'est pas une règle à expliquer
+    expect(expliquerRefus(echecFouDefendu, carre('e1'), carre('a8'))).toBeNull();
+  });
+
+  it('dit qu’une case reste en échec quand le roi y fuirait', () => {
+    // roi en échec par une tour sur la colonne e ; e2 reste sur la colonne
+    const pos = parseFEN('4r2k/8/8/8/8/8/8/4K3 w - - 0 1');
+    expect(expliquerRefus(pos, carre('e1'), carre('e2'))).toContain('encore en échec');
+  });
+
+  it('dit qu’un coup ne pare pas l’échec', () => {
+    // la tour a1 pourrait aller en a2, mais l'échec de la tour e8 subsiste
+    const pos = parseFEN('4r2k/8/8/8/8/8/8/R3K3 w - - 0 1');
+    expect(expliquerRefus(pos, carre('a1'), carre('a2'))).toContain('ne pare pas');
+  });
+
+  it('dit qu’une pièce est clouée', () => {
+    // le cavalier e4 est cloué par la tour e8 face au roi e1, sans échec en cours
+    const pos = parseFEN('4r2k/8/8/8/4N3/8/8/4K3 w - - 0 1');
+    expect(expliquerRefus(pos, carre('e4'), carre('c5'))).toContain('clouée');
   });
 });

@@ -15,9 +15,11 @@
  */
 import {
   colorOf,
+  inCheck,
   isAttacked,
   legalMoves,
   makeMove,
+  pseudoMovesFrom,
   squareName,
   type Color,
   type Move,
@@ -232,4 +234,37 @@ export function piecesEnPrise(pos: Position, camp: Color): string[] {
     if (!defendue) cases.push(squareName(s));
   }
   return cases;
+}
+
+/**
+ * Pourquoi ce coup est-il refusé ?
+ *
+ * Un refus muet est la première cause de « c'est un bug » : l'élève voit une
+ * capture évidente, l'application ne la joue pas, et rien ne l'éclaire. Les
+ * trois raisons ci-dessous couvrent la quasi-totalité des cas réels.
+ *
+ * Rend `null` quand il n'y a rien à dire — la pièce ne se déplace tout
+ * simplement pas ainsi, ou le coup est légal.
+ */
+export function expliquerRefus(pos: Position, from: number, to: number): string | null {
+  const pseudo = pseudoMovesFrom(pos, from).find((m) => m.to === to);
+  if (!pseudo) return null;
+  const camp = pos.turn;
+  if (!inCheck(makeMove(pos, pseudo), camp)) return null;
+
+  const piece = pos.board[from];
+  if (!piece) return null;
+  const estRoi = typeOf(piece) === 'K';
+  const capture = Boolean(pos.board[to]) || Boolean(pseudo.enPassant);
+
+  if (estRoi && capture) {
+    return `En ${squareName(to)} la pièce est défendue : ton roi y resterait en échec.`;
+  }
+  if (estRoi) {
+    return `En ${squareName(to)} ton roi serait encore en échec.`;
+  }
+  if (inCheck(pos, camp)) {
+    return 'Ce coup ne pare pas l’échec.';
+  }
+  return 'Cette pièce est clouée : la bouger découvrirait ton roi.';
 }
