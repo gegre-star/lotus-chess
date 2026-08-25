@@ -367,6 +367,32 @@ export function legalMoves(pos: Position): Move[] {
 export const movesFrom = (pos: Position, from: number): Move[] =>
   legalMoves(pos).filter((m) => m.from === from);
 
+/**
+ * Roque désigné en touchant sa propre tour plutôt que la case d'arrivée du roi.
+ *
+ * Beaucoup d'applications d'échecs acceptent les deux gestes, et c'est celui
+ * que font spontanément les joueurs qui pensent « je roque avec cette
+ * tour-là ». Sans cela, le toucher ne produit rien et le roque paraît
+ * interdit alors qu'il est parfaitement légal.
+ */
+export function castleByRook(
+  pos: Position,
+  kingSquare: number,
+  rookSquare: number,
+): Move | undefined {
+  const king = pos.board[kingSquare];
+  const rook = pos.board[rookSquare];
+  if (!king || !rook) return undefined;
+  if (typeOf(king) !== 'K' || typeOf(rook) !== 'R') return undefined;
+  if (colorOf(king) !== colorOf(rook)) return undefined;
+  // la tour du petit roque est celle de la colonne h, celle du grand roque en a
+  const file = fileOf(rookSquare);
+  const side: 'K' | 'Q' | null = file === 7 ? 'K' : file === 0 ? 'Q' : null;
+  if (!side) return undefined;
+  if (rankOf(rookSquare) !== rankOf(kingSquare)) return undefined;
+  return movesFrom(pos, kingSquare).find((m) => m.castle === side);
+}
+
 export function findMove(
   pos: Position,
   from: number,
