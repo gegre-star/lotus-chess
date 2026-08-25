@@ -67,6 +67,13 @@ export interface Bot {
   /** Probabilité de jouer un coup au hasard, pour doser la force. */
   gaffe: number;
   say: string;
+  /**
+   * Confie les coups à Stockfish, à la force indiquée par `elo`.
+   *
+   * Sur iOS et Android, Hermes n'exécute ni WebAssembly ni Web Worker :
+   * l'adversaire retombe alors sur `depth` et `gaffe` comme les autres.
+   */
+  stockfish?: boolean;
 }
 
 export interface Opening {
@@ -1810,6 +1817,21 @@ export const PUZZLES: Puzzle[] = [
   }
 ];
 
+/**
+ * Niveaux proposés pour l'adversaire Stockfish.
+ *
+ * Les bornes sont celles du moteur lui-même : il refuse de descendre sous
+ * 1320, et c'est justement pourquoi les cinq personnages restent utiles pour
+ * débuter — aucun réglage de Stockfish ne les remplace.
+ */
+export const STOCKFISH_NIVEAUX: { elo: number; nom: string }[] = [
+  { elo: 1320, nom: 'Doux' },
+  { elo: 1700, nom: 'Solide' },
+  { elo: 2100, nom: 'Coriace' },
+  { elo: 2600, nom: 'Impitoyable' },
+  { elo: 3190, nom: 'Pleine force' },
+];
+
 export const BOTS: Bot[] = [
   {
     "id": "pixou",
@@ -1850,6 +1872,15 @@ export const BOTS: Bot[] = [
     "depth": 3,
     "gaffe": 0,
     "say": "Montre-moi ce que tu sais."
+  },
+  {
+    "id": "stockfish",
+    "nom": "Stockfish",
+    "elo": 1600,
+    "depth": 3,
+    "gaffe": 0,
+    "say": "Le vrai moteur. Choisis ta difficulté.",
+    "stockfish": true
   }
 ];
 

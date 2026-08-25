@@ -172,7 +172,12 @@ describe('ouvertures et parties', () => {
 describe('bots et trophées', () => {
   it('décrivent des adversaires cohérents et de force croissante', () => {
     expect(new Set(BOTS.map((b) => b.id)).size).toBe(BOTS.length);
-    const elos = BOTS.map((b) => b.elo);
+    // L'échelle de force ne concerne que les personnages : Stockfish n'en est
+    // pas un barreau, sa difficulté se règle avant la partie. Le ranger dans
+    // l'ordre des Elo reviendrait à lui prêter une force fixe qu'il n'a pas.
+    const personnages = BOTS.filter((b) => !b.stockfish);
+    expect(personnages.length).toBeGreaterThanOrEqual(5);
+    const elos = personnages.map((b) => b.elo);
     expect(elos).toEqual([...elos].sort((a, b) => a - b));
     BOTS.forEach((b) => {
       expect(b.depth).toBeGreaterThanOrEqual(1);
@@ -180,8 +185,8 @@ describe('bots et trophées', () => {
       expect(b.gaffe).toBeGreaterThanOrEqual(0);
       expect(b.gaffe).toBeLessThanOrEqual(1);
     });
-    // plus le bot est fort, moins il doit se tromper
-    const gaffes = BOTS.map((b) => b.gaffe);
+    // plus le personnage est fort, moins il doit se tromper
+    const gaffes = personnages.map((b) => b.gaffe);
     expect(gaffes).toEqual([...gaffes].sort((a, b) => b - a));
   });
 
