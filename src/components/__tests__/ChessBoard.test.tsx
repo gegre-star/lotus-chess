@@ -2,6 +2,7 @@ import React from 'react';
 import renderer, { act, type ReactTestInstance } from 'react-test-renderer';
 import { Path } from 'react-native-svg';
 import { ChessBoard } from '../ChessBoard';
+import { ChessPiece } from '../ChessPiece';
 import { START_FEN, parseFEN, squareFromName } from '../../chess/engine';
 
 const position = parseFEN(START_FEN);
@@ -94,5 +95,40 @@ describe('géométrie des flèches', () => {
     const pts = points(cheminDe('e1', 'e8'));
     const ys = pts.filter((_, i) => i % 2 === 1);
     expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(5);
+  });
+});
+
+/**
+ * Le fantôme montre d'où vient la pièce que l'adversaire vient de déplacer.
+ * Sur un écran, un coup adverse ne se voit pas : la pièce est simplement
+ * ailleurs, et rien ne dit d'où.
+ */
+describe('fantôme du dernier coup', () => {
+  it('dessine la pièce estompée sur la case de départ', () => {
+    // e4 est vide à la position initiale : c'est là qu'un fantôme se voit
+    const root = render({ ghost: { square: squareFromName('e4'), piece: 'P' } });
+    const g = root.findByProps({ testID: 'ghost-e4' });
+    expect(g.props.style.opacity).toBeLessThan(1);
+    expect(g.findAllByType(ChessPiece)).toHaveLength(1);
+  });
+
+  it('n’en dessine aucun quand rien n’est demandé', () => {
+    expect(render().findAllByProps({ testID: 'ghost-e4' })).toHaveLength(0);
+  });
+
+  /**
+   * La case de départ est vide après le coup — sauf si une autre pièce s'y
+   * trouve déjà (reprise, roque). Le fantôme ne doit jamais la recouvrir.
+   */
+  it('s’efface si une pièce occupe la case', () => {
+    const root = render({ ghost: { square: squareFromName('e1'), piece: 'P' } });
+    expect(root.findAllByProps({ testID: 'ghost-e1' })).toHaveLength(0);
+  });
+
+  it('ne rend pas les cases intouchables', () => {
+    const onPressSquare = jest.fn();
+    const root = render({ ghost: { square: squareFromName('e4'), piece: 'P' }, onPressSquare });
+    press(root, 'e4');
+    expect(onPressSquare).toHaveBeenCalledWith(squareFromName('e4'));
   });
 });

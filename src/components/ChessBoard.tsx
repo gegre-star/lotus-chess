@@ -11,6 +11,7 @@ import {
   squareFromName,
   squareName,
   type Move,
+  type Piece,
   type Position,
 } from '../chess/engine';
 import type { BoardTheme } from '../chess/progress';
@@ -42,6 +43,14 @@ interface ChessBoardProps {
   /** Coups légaux à signaler par une pastille. */
   targets?: Move[];
   lastMove?: { from: number; to: number } | null;
+  /**
+   * Pièce estompée laissée sur la case de départ du dernier coup.
+   *
+   * Sur un écran de téléphone, un coup adverse ne se voit pas : la pièce est
+   * ailleurs, et rien ne dit d'où elle vient. Le fantôme montre le point de
+   * départ pendant un instant, le temps de comprendre le déplacement.
+   */
+  ghost?: { square: number; piece: Piece } | null;
   arrows?: Arrow[];
   badges?: Record<number, SquareBadge>;
   onPressSquare?: (square: number) => void;
@@ -108,6 +117,7 @@ export function ChessBoard({
   selected = null,
   targets = [],
   lastMove = null,
+  ghost = null,
   arrows = [],
   badges = {},
   onPressSquare,
@@ -183,6 +193,11 @@ export function ChessBoard({
             ) : null}
 
             {piece ? <ChessPiece piece={piece} size={cell * 0.92} /> : null}
+            {!piece && ghost?.square === square ? (
+              <View style={styles.ghost} testID={`ghost-${squareName(square)}`}>
+                <ChessPiece piece={ghost.piece} size={cell * 0.92} />
+              </View>
+            ) : null}
 
             {move && !isCapture ? (
               <View
@@ -245,6 +260,7 @@ export function ChessBoard({
 
 const styles = StyleSheet.create({
   board: { flexDirection: 'row', flexWrap: 'wrap', borderRadius: 4, overflow: 'hidden' },
+  ghost: { position: 'absolute', opacity: 0.35 },
   square: { alignItems: 'center', justifyContent: 'center' },
   fill: { ...StyleSheet.absoluteFillObject },
   dot: { position: 'absolute', backgroundColor: DOT },

@@ -29,6 +29,7 @@ import {
   toSAN,
   type Color,
   type Move,
+  type Piece,
   type PieceType,
   type Position,
 } from '../src/chess/engine';
@@ -49,6 +50,19 @@ interface GameState {
   tone: BubbleTone;
   badges: Record<number, SquareBadge>;
 }
+
+/**
+ * Temps minimal entre le coup de l'élève et celui de l'adversaire.
+ *
+ * Le bot répondait en 120 ms : sur un téléphone la pièce adverse était déjà
+ * arrivée avant qu'on ait relevé les yeux, et on ne voyait pas ce qui avait
+ * bougé. Ce délai n'est pas de l'attente perdue, c'est ce qui rend le coup
+ * observable.
+ */
+const REFLEXION_MIN_MS = 850;
+
+/** Durée d'affichage du fantôme laissé par le coup adverse. */
+const TRACE_MS = 2200;
 
 const VERDICT_COULEUR: Record<Verdict, string> = {
   brillant: C.gold,
@@ -80,6 +94,9 @@ export default function PlayScreen() {
   const [game, setGame] = useState<GameState | null>(null);
   const [review, setReview] = useState<CoupRevu[] | null>(null);
   const [revueIndex, setRevueIndex] = useState(0);
+  /** Dernier coup adverse, montré en fantôme le temps de le comprendre. */
+  const [trace, setTrace] = useState<{ from: number; to: number; piece: Piece } | null>(null);
+  const traceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [analysing, setAnalysing] = useState<string | null>(null);
   // un seul moteur pour tout l'écran : le démarrer coûte le chargement du wasm
   const engine = useRef<ReturnType<typeof createEngine> | null>(null);
@@ -95,6 +112,7 @@ export default function PlayScreen() {
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      if (traceTimer.current) clearTimeout(traceTimer.current);
       // le worker Stockfish survivrait au démontage de l'écran
       engine.current?.dispose();
       engine.current = null;
@@ -210,14 +228,32 @@ export default function PlayScreen() {
       if (!move) move = chooseMove(parseFEN(fenAvant), { depth: bot.depth, gaffe: bot.gaffe });
       if (!vivant || !move) return;
 
+      // Stockfish rend son coup en quelques centaines de millisecondes, le
+      // minimax en quelques-unes : sans plancher, la vitesse de réponse
+      // dépendrait de l'adversaire choisi. On attend donc le reste du délai.
+      const reste = REFLEXION_MIN_MS - (Date.now() - depart);
+      if (reste > 0) await new Promise((r) => setTimeout(r, reste));
+      if (!vivant) return;
+
+      const avant = parseFEN(fenAvant);
+      const partie = avant.board[move.from];
+
       setGame((g) => {
         // la position a pu changer pendant la réflexion : on ne joue un coup
         // que dans la position pour laquelle il a été calculé
         if (!g || g.over || toFEN(g.position) !== fenAvant) return g;
         return { ...applyMove(g, move as Move), aideEchec: false };
       });
+
+      // le fantôme reste sur la case de départ le temps de lire le coup
+      if (partie) {
+        setTrace({ from: move.from, to: move.to, piece: partie });
+        if (traceTimer.current) clearTimeout(traceTimer.current);
+        traceTimer.current = setTimeout(() => setTrace(null), TRACE_MS);
+      }
     };
 
+    const depart = Date.now();
     const handle = setTimeout(jouer, 120);
     timer.current = handle;
     return () => {
@@ -255,6 +291,24 @@ export default function PlayScreen() {
     return out;
   }, [game]);
 
+  /** Efface la trace : elle ne décrit plus la position dès qu'un coup est joué. */
+  const effacerTrace = useCallback(() => {
+    if (traceTimer.current) clearTimeout(traceTimer.current);
+    setTrace(null);
+  }, []);
+
+  /**
+   * Flèche du coup adverse, tracée en même temps que le fantôme.
+   *
+   * Le fantôme dit d'où la pièce vient, la flèche dit dans quel sens elle est
+   * allée : ensemble ils remplacent le mouvement qu'un écran ne montre pas.
+   */
+  const flechesTrace = useMemo(
+    (): Arrow[] =>
+      trace ? [[squareName(trace.from), squareName(trace.to), C.blue]] : [],
+    [trace],
+  );
+
   const onPressSquare = useCallback(
     (square: number) => {
       setGame((g) => {
@@ -265,11 +319,15 @@ export default function PlayScreen() {
           const candidates = movesFrom(g.position, g.selected).filter((m) => m.to === square);
           if (candidates.length > 0) {
             const move = candidates.find((m) => m.promotion === 'Q') ?? candidates[0];
+            effacerTrace();
             return { ...applyMove(g, move), aideEchec: false };
           }
           // toucher sa propre tour est l'autre geste courant pour roquer
           const roque = castleByRook(g.position, g.selected, square);
-          if (roque) return { ...applyMove(g, roque), aideEchec: false };
+          if (roque) {
+            effacerTrace();
+            return { ...applyMove(g, roque), aideEchec: false };
+          }
         }
 
         const piece = g.position.board[square];
@@ -306,12 +364,13 @@ export default function PlayScreen() {
         return { ...g, selected: sien ? square : null };
       });
     },
-    [applyMove],
+    [applyMove, effacerTrace],
   );
 
   const undo = useCallback(() => {
     setGame((g) => {
       if (!g || g.history.length === 0) return g;
+      effacerTrace();
       let index = g.history.length - 1;
       // on remonte aussi le coup de l'ordinateur, pour rendre la main au joueur
       if (index > 0 && g.history[index].turn !== g.side) index -= 1;
@@ -327,7 +386,7 @@ export default function PlayScreen() {
         badges: {},
       };
     });
-  }, []);
+  }, [effacerTrace]);
 
   const analyse = useCallback(async () => {
     if (!game) return;
@@ -515,6 +574,8 @@ export default function PlayScreen() {
             selected={game.selected}
             targets={game.selected !== null ? movesFrom(game.position, game.selected) : []}
             lastMove={game.lastMove}
+            ghost={trace ? { square: trace.from, piece: trace.piece } : null}
+            arrows={flechesTrace}
             badges={badgesEchiquier}
             onPressSquare={onPressSquare}
           />
