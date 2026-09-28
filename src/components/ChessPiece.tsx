@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import type { Piece } from '../chess/engine';
 
@@ -150,15 +150,31 @@ const SHAPES = { k: King, q: Queen, r: Rook, b: Bishop, n: Knight, p: Pawn } as 
 interface ChessPieceProps {
   piece: Piece;
   size: number;
+  /** Opacité de la pièce ; 1 par défaut. Sert à estomper la pièce que l'on glisse. */
+  opacite?: number;
 }
 
-export function ChessPiece({ piece, size }: ChessPieceProps) {
-  const white = piece === piece.toUpperCase();
-  const skin = white ? PIECE_COLORS.white : PIECE_COLORS.black;
-  const Shape = SHAPES[piece.toLowerCase() as keyof typeof SHAPES];
-  return (
-    <Svg width={size} height={size} viewBox="0 0 45 45">
-      <Shape s={skin} />
-    </Svg>
-  );
-}
+/**
+ * Mémoïsée : `piece` et `size` sont des primitives, donc deux rendus d'une même
+ * pièce à la même taille sont identiques. Sans cela, chacune des 32 pièces
+ * réévaluait son arbre SVG à chaque tic de minuteur de l'écran de jeu, alors
+ * que rien n'avait changé pour elle.
+ *
+ * Le comparateur est écrit à la main plutôt que laissé au défaut : il dit ce
+ * qui compte, et il donne à `memo` un type que les outils de test retrouvent
+ * par `findAllByType(ChessPiece)` (le défaut le rend introuvable).
+ */
+export const ChessPiece = memo(
+  function ChessPiece({ piece, size, opacite = 1 }: ChessPieceProps) {
+    const white = piece === piece.toUpperCase();
+    const skin = white ? PIECE_COLORS.white : PIECE_COLORS.black;
+    const Shape = SHAPES[piece.toLowerCase() as keyof typeof SHAPES];
+    return (
+      <Svg width={size} height={size} viewBox="0 0 45 45" opacity={opacite}>
+        <Shape s={skin} />
+      </Svg>
+    );
+  },
+  (avant, apres) =>
+    avant.piece === apres.piece && avant.size === apres.size && avant.opacite === apres.opacite,
+);
