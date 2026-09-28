@@ -5,6 +5,7 @@
  * c'est là que se nichent les erreurs de signe et d'unité, pas dans l'envoi
  * des messages.
  */
+import { legalMoves, squareFromName, type Move, type Position } from '../chess/engine';
 import type { Analysis, UciMove } from './types';
 
 /** État accumulé au fil des lignes `info`, figé par `bestmove`. */
@@ -64,3 +65,23 @@ export const toAnalysis = (
   pv: acc.pv,
   engine,
 });
+
+/**
+ * Retrouve le coup légal qui correspond à un coup UCI (`e2e4`, `e7e8q`).
+ *
+ * `null` si le texte n'est pas un coup UCI ou si le coup est illégal dans cette
+ * position : une variante de moteur peut être périmée (position changée entre
+ * temps), et le rejeter vaut mieux que jouer un coup absurde sur l'échiquier.
+ * Le roque s'écrit, comme chez Stockfish, par la case d'arrivée du roi.
+ */
+export function coupDepuisUci(pos: Position, uci: UciMove): Move | null {
+  if (!/^[a-h][1-8][a-h][1-8][nbrq]?$/.test(uci)) return null;
+  const from = squareFromName(uci.slice(0, 2));
+  const to = squareFromName(uci.slice(2, 4));
+  const promo = uci.length > 4 ? uci[4].toUpperCase() : undefined;
+  return (
+    legalMoves(pos).find(
+      (m) => m.from === from && m.to === to && (promo ? m.promotion === promo : !m.promotion),
+    ) ?? null
+  );
+}
