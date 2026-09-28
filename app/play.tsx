@@ -12,7 +12,8 @@ import { BOTS, STOCKFISH_NIVEAUX, type Bot } from '../src/chess/content';
 import { enregistrerActivite, finishGame } from '../src/chess/progress';
 import { hangingSquare, updateElo } from '../src/chess/ai';
 import { createEngine } from '../src/analysis';
-import { revoirPartie, type CoupRevu } from '../src/analysis/review';
+import { analyserPartie, RevueAnnulee, type RevueComplete } from '../src/analysis/review';
+import { RevueDePartie } from '../src/components/RevueDePartie';
 import { perteEnPions, type Verdict } from '../src/chess/coaching';
 import { Cerveau } from '../src/chess/brain/cerveau';
 import { coupAdverse, type Moteurs } from '../src/chess/adversaire';
@@ -130,8 +131,8 @@ export default function PlayScreen() {
   const [notice, setNotice] = useState<string | null>(null);
 
   // ---- analyse de fin de partie
-  const [review, setReview] = useState<CoupRevu[] | null>(null);
-  const [revueIndex, setRevueIndex] = useState(0);
+  const [review, setReview] = useState<RevueComplete | null>(null);
+  const revueFermee = useRef(false);
   const [analysing, setAnalysing] = useState<string | null>(null);
 
   // un seul moteur d'analyse pour tout l'écran : le démarrer coûte le chargement du wasm
@@ -152,6 +153,7 @@ export default function PlayScreen() {
   useEffect(
     () => () => {
       if (traceTimer.current) clearTimeout(traceTimer.current);
+      revueFermee.current = true;
       // le worker Stockfish survivrait au démontage de l'écran
       analyse_.current?.dispose();
       analyse_.current = null;
@@ -513,14 +515,16 @@ export default function PlayScreen() {
     if (!analyse_.current) analyse_.current = createEngine();
     setAnalysing('Analyse en cours…');
     try {
-      const revue = await revoirPartie(analyse_.current, parseFEN(START_FEN), p.moves, p.sans, p.side, {
+      revueFermee.current = false;
+      const revue = await analyserPartie(analyse_.current, parseFEN(START_FEN), p.moves, p.sans, {
         depth: 10,
+        joueur: p.side,
         onProgress: (fait, total) => setAnalysing(`Analyse ${fait}/${total}`),
+        annule: () => revueFermee.current,
       });
       setReview(revue);
-      setRevueIndex(0);
-    } catch {
-      setNotice('L’analyse a échoué. Réessaie dans un instant.');
+    } catch (e) {
+      if (!(e instanceof RevueAnnulee)) setNotice('L’analyse a échoué. Réessaie dans un instant.');
     } finally {
       setAnalysing(null);
     }
@@ -680,94 +684,23 @@ export default function PlayScreen() {
 
   const bot = partie.bot;
 
-  // ---- analyse de la partie
+  // ---- revue de la partie
   if (review) {
-    const good = review.filter((r) => r.verdict === 'bon' || r.verdict === 'brillant').length;
-    const courant = review[Math.min(revueIndex, review.length - 1)];
-    // on affiche la position **avant** le coup : c'est celle où l'élève avait
-    // le choix, donc la seule où montrer une alternative a du sens
-    const avant = positions[courant.ply - 1] ?? parseFEN(START_FEN);
-    const fautif = courant.verdict !== 'bon' && courant.verdict !== 'brillant';
-
     return (
-      <ScrollView style={S.screen} contentContainerStyle={{ paddingBottom: 28 }}>
-        <CoachBubble
-          coach="robi"
-          text={`${good} bons coups sur ${review.length}. ${
-            review.some((r) => r.verdict === 'gaffe')
-              ? 'Regarde les gaffes : c’est là que la partie bascule.'
-              : 'Partie très propre !'
-          }`}
-        />
-
-        <View style={styles.boardWrap}>
-          <ChessBoard
-            position={avant}
-            size={boardSize}
-            theme={reglages.board}
-            showCoords={reglages.coords}
-            flipped={partie.side === 'b'}
-            arrows={flechesRevue(courant, fautif)}
-          />
-        </View>
-
-        <View style={[S.pad, { paddingTop: 10 }]}>
-          <Text style={styles.revueTitre}>
-            {courant.ply}. {courant.san} — {courant.titre}
-          </Text>
-          <Text style={styles.revueTexte}>{courant.texte}</Text>
-          {fautif && courant.meilleur ? (
-            <Text style={[styles.revueTexte, { color: C.green }]}>
-              Flèche verte : le coup qu’il fallait jouer. Flèche rouge : le tien.
-            </Text>
-          ) : null}
-        </View>
-
-        <ActionBar>
-          <Action
-            testID="revue-precedent"
-            label="◀ Précédent"
-            onPress={() => setRevueIndex((i) => Math.max(0, i - 1))}
-            disabled={revueIndex === 0}
-          />
-          <Action
-            testID="revue-suivant"
-            label="Suivant ▶"
-            primary
-            onPress={() => setRevueIndex((i) => Math.min(review.length - 1, i + 1))}
-            disabled={revueIndex >= review.length - 1}
-          />
-        </ActionBar>
-
-        <View style={S.sectionRow}>
-          <Text style={S.sectionTitle}>Tes coups</Text>
-          <Text style={S.sectionMeta}>
-            {revueIndex + 1}/{review.length}
-          </Text>
-        </View>
-        <View style={[S.pad, { gap: 6 }]}>
-          {review.map((r, i) => (
-            <Pressable
-              key={`${r.san}-${i}`}
-              testID={`revue-coup-${i}`}
-              onPress={() => setRevueIndex(i)}
-              style={[S.card, S.row, i === revueIndex ? { borderColor: C.green, borderWidth: 1 } : null]}
-            >
-              <View style={[styles.tag, { backgroundColor: VERDICT_COULEUR[r.verdict] }]} />
-              <Text style={[S.itemTitle, { width: 70 }]}>
-                {i + 1}. {r.san}
-              </Text>
-              <Text style={[S.itemSub, { flex: 1 }]}>
-                {r.titre}
-                {ecart(r.perte)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <View style={[S.pad, { paddingTop: 14 }]}>
-          <Button label="Retour" onPress={() => setReview(null)} variant="neutral" />
-        </View>
-      </ScrollView>
+      <RevueDePartie
+        revue={review}
+        positions={positions}
+        joueur={partie.side}
+        taille={boardSize}
+        theme={reglages.board}
+        coords={reglages.coords}
+        noms={{
+          blancs: partie.side === 'w' ? 'Blancs' : `${bot.nom} (blancs)`,
+          noirs: partie.side === 'b' ? 'Noirs' : `${bot.nom} (noirs)`,
+        }}
+        indexInitial={Math.max(0, review.critique ?? 0)}
+        onFermer={() => setReview(null)}
+      />
     );
   }
 
@@ -1017,22 +950,7 @@ function ecart(perte: number): string {
   return pions > 0.3 ? ` · −${pions.toFixed(1).replace('.', ',')}` : '';
 }
 
-/**
- * Flèches de la revue : en rouge le coup joué, en vert celui qu'il fallait
- * jouer. Sur un bon coup on ne trace que le coup joué — deux flèches
- * identiques n'apprendraient rien.
- */
-function flechesRevue(coup: CoupRevu, fautif: boolean): Arrow[] {
-  const seg = (uci: string, couleur: string): Arrow => [uci.slice(0, 2), uci.slice(2, 4), couleur];
-  if (!fautif || !coup.meilleur || coup.meilleur === coup.joue) {
-    return [seg(coup.joue, C.green)];
-  }
-  return [seg(coup.joue, C.red), seg(coup.meilleur, C.green)];
-}
-
 const styles = StyleSheet.create({
-  revueTitre: { color: C.text, fontSize: 15, fontWeight: '800' },
-  revueTexte: { color: C.muted, fontSize: 13, marginTop: 4, lineHeight: 18 },
   boardWrap: { alignItems: 'center', paddingTop: 4 },
   nav: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingTop: 6 },
   navBouton: {

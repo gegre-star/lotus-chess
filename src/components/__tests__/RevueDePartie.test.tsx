@@ -4,6 +4,10 @@ import { StyleSheet } from 'react-native';
 import { Path } from 'react-native-svg';
 import { RevueDePartie, COULEUR_VERDICT, flechesDuCoup, marqueursDeFautes } from '../RevueDePartie';
 import { ChessBoard } from '../ChessBoard';
+
+/** L'échiquier est mémoïsé : `findByType` doit viser le composant interne. */
+const plateau = (root: { findAll: (f: (n: any) => boolean) => any[] }) =>
+  root.findAll((n) => n.type === (ChessBoard as unknown as { type: unknown }).type)[0];
 import { analyserPartie, type RevueComplete } from '../../analysis/review';
 import { toUci } from '../../analysis/local';
 import {
@@ -234,20 +238,20 @@ describe('RevueDePartie', () => {
 
     it('affiche la position d’avant le coup commenté', () => {
       const { root } = monter({ indexInitial: 2 });
-      const echiquier = root.findByType(ChessBoard);
+      const echiquier = plateau(root);
       // avant 2.Dh5 : le pion e4 est joué, la dame est encore en d1
       expect(toFEN(echiquier.props.position)).toBe(toFEN(positions[2]));
     });
 
     it('retourne l’échiquier quand l’élève joue les noirs, sauf demande contraire', () => {
-      expect(monter({ joueur: 'b' }).root.findByType(ChessBoard).props.flipped).toBe(true);
-      expect(monter({ joueur: 'w' }).root.findByType(ChessBoard).props.flipped).toBe(false);
-      expect(monter({ joueur: 'b', flipped: false }).root.findByType(ChessBoard).props.flipped).toBe(false);
+      expect(plateau(monter({ joueur: 'b' }).root).props.flipped).toBe(true);
+      expect(plateau(monter({ joueur: 'w' }).root).props.flipped).toBe(false);
+      expect(plateau(monter({ joueur: 'b', flipped: false }).root).props.flipped).toBe(false);
     });
 
     it('transmet le thème et les coordonnées', () => {
       const { root } = monter({ theme: 'bois', coords: false });
-      const e = root.findByType(ChessBoard);
+      const e = plateau(root);
       expect(e.props.theme).toBe('bois');
       expect(e.props.showCoords).toBe(false);
     });
@@ -262,7 +266,7 @@ describe('RevueDePartie', () => {
 
       toucher(root, 'revue-suivant');
       expect(lire(root, 'revue-position')).toContain('coup 1/3');
-      expect(toFEN(root.findByType(ChessBoard).props.position)).not.toBe(toFEN(positions[2]));
+      expect(toFEN(plateau(root).props.position)).not.toBe(toFEN(positions[2]));
       // le coup en cours est encadré dans la ligne
       expect(lire(root, 'revue-texte')).toContain('[2. Cf3]');
 
@@ -277,7 +281,7 @@ describe('RevueDePartie', () => {
       const { root } = monter({ indexInitial: 2 });
       toucher(root, 'revue-suite');
       toucher(root, 'revue-suivant');
-      const pos: Position = root.findByType(ChessBoard).props.position;
+      const pos: Position = plateau(root).props.position;
       expect(pos.board[squareFromName('f3')]).toBe('N');
       expect(pos.board[squareFromName('g1')]).toBeNull();
     });
@@ -288,7 +292,7 @@ describe('RevueDePartie', () => {
       toucher(root, 'revue-suivant');
       toucher(root, 'revue-retour');
       expect(lire(root, 'revue-position')).toContain('Avant 2. Dh5');
-      expect(toFEN(root.findByType(ChessBoard).props.position)).toBe(toFEN(positions[2]));
+      expect(toFEN(plateau(root).props.position)).toBe(toFEN(positions[2]));
       expect(un(root, 'revue-suite')).toBeDefined();
     });
 

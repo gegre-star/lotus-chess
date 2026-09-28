@@ -19,7 +19,7 @@ import {
   type EtatExercice,
 } from '../src/chess/exerciseState';
 import { noterCoup, type Verdict } from '../src/chess/coaching';
-import { bestValue, moveValue } from '../src/chess/ai';
+import { Cerveau } from '../src/chess/brain/cerveau';
 import {
   colorOf,
   movesFrom,
@@ -30,7 +30,6 @@ import {
   type Position,
 } from '../src/chess/engine';
 
-const DEPTH = 3;
 
 /** Couleur de la pastille et du ton de bulle selon le verdict. */
 const TON: Record<Verdict, BubbleTone> = {
@@ -55,6 +54,7 @@ export default function TrainScreen() {
   const [refus, setRefus] = useState<string | null>(null);
   const [promo, setPromo] = useState<Move[] | null>(null);
   const credite = useRef<Set<string>>(new Set());
+  const cerveau = useRef<Cerveau | null>(null);
   // La référence ne sert qu'à ne pas créditer deux fois le même exercice dans
   // un même geste. Elle survivait à « Réinitialiser » : les exercices refaits
   // ensuite ne rapportaient plus rien. La progression, elle, fait foi : dès
@@ -91,11 +91,14 @@ export default function TrainScreen() {
       const uci = uciOf(move);
       // le verdict compare le coup au meilleur de la position ; le calcul
       // matériel, lui, vient du plateau (voir `coaching.ts`)
+      // jugé par une recherche bornée en nœuds : même verdict sur tous les appareils
+      cerveau.current ??= new Cerveau();
+      const jugement = cerveau.current.jugerCoup(position, move);
       const feedback = noterCoup({
         pos: position,
         move,
-        meilleur: bestValue(position, DEPTH),
-        joue: moveValue(position, move, DEPTH),
+        meilleur: jugement.scoreMeilleur,
+        joue: jugement.scoreJoue,
       });
       const suivant = reduire(exercise, etat, { type: 'proposer', uci, feedback });
       setEtat(suivant);
