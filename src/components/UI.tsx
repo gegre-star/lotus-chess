@@ -75,11 +75,13 @@ interface ListItemProps {
   done?: boolean;
   onPress: () => void;
   left?: React.ReactNode;
+  testID?: string;
 }
 
-export function ListItem({ title, subtitle, done, onPress, left }: ListItemProps) {
+export function ListItem({ title, subtitle, done, onPress, left, testID }: ListItemProps) {
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       style={({ pressed }) => [styles.item, done ? styles.itemDone : null, pressed ? styles.pressed : null]}
     >

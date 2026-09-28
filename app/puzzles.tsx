@@ -7,7 +7,19 @@ import { Action, ActionBar, ListItem, ProgressBar } from '../src/components/UI';
 import { C, S } from '../src/components/theme';
 import { useProgress } from '../src/chess/ProgressContext';
 import { PUZZLES, type Puzzle } from '../src/chess/content';
-import { failPuzzle, solvePuzzle } from '../src/chess/progress';
+import { failPuzzle, finishSprint, solvePuzzle } from '../src/chess/progress';
+import {
+  DUREE_SPRINT_MS,
+  PENALITE_MS,
+  demarrerSprint,
+  problemeCourant,
+  rater,
+  reussir,
+  tempsRestant,
+  type EtatSprint,
+} from '../src/chess/sprint';
+import { formater } from '../src/chess/pendule';
+import { Button, Dialog } from '../src/components/UI';
 import { Cerveau } from '../src/chess/brain/cerveau';
 import { objectifAtteint } from '../src/chess/puzzleState';
 import { REFLEXION_MIN_MS, TRACE_MS, toucherCase } from '../src/chess/interaction';
@@ -88,6 +100,13 @@ export default function PuzzlesScreen() {
     setSessionEtat(s);
   }, []);
   const [promo, setPromo] = useState<Move[] | null>(null);
+  const [sprint, setSprint] = useState<EtatSprint | null>(null);
+  const sprintRef = useRef<EtatSprint | null>(null);
+  const [sprintFin, setSprintFin] = useState<number | null>(null);
+  const [maintenant, setMaintenant] = useState(() => Date.now());
+  const [sprintSelected, setSprintSelected] = useState<number | null>(null);
+  const [sprintMessage, setSprintMessage] = useState('');
+  const [sprintBad, setSprintBad] = useState<number | null>(null);
   /** Dernier coup adverse, montré en fantôme le temps de le comprendre. */
   const [trace, setTrace] = useState<{ from: number; to: number; piece: Piece } | null>(null);
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -249,6 +268,77 @@ export default function PuzzlesScreen() {
     [commit, jouerCoup],
   );
 
+  // ------------------------------------------------------------------ sprint
+
+  const commitSprint = useCallback((e: EtatSprint | null) => {
+    sprintRef.current = e;
+    setSprint(e);
+  }, []);
+
+  const lancerSprint = useCallback(() => {
+    commit(null);
+    setSprintFin(null);
+    setSprintSelected(null);
+    setSprintBad(null);
+    setSprintMessage('Trouve le coup gagnant, vite !');
+    commitSprint(demarrerSprint(PUZZLES, Date.now()));
+  }, [commit, commitSprint]);
+
+  const terminerSprint = useCallback(() => {
+    const e = sprintRef.current;
+    if (!e) return;
+    update((p) => finishSprint(p, e.score));
+    setSprintFin(e.score);
+    commitSprint(null);
+  }, [commitSprint, update]);
+
+  // l'horloge du sprint : un horodatage, pas un compteur — voir `pendule.ts`
+  const sprintActif = sprint !== null;
+  useEffect(() => {
+    if (!sprintActif) return undefined;
+    const tic = setInterval(() => {
+      const now = Date.now();
+      setMaintenant(now);
+      const e = sprintRef.current;
+      if (e && tempsRestant(e, now) <= 0) terminerSprint();
+    }, 200);
+    return () => clearInterval(tic);
+  }, [sprintActif, terminerSprint]);
+
+  const jouerSprint = useCallback(
+    (move: Move) => {
+      const e = sprintRef.current;
+      if (!e) return;
+      const pz = problemeCourant(e);
+      const pos = parseFEN(pz.fen);
+      setSprintSelected(null);
+      if (moteur().jugerCoup(pos, move, { profondeur: 5, noeuds: 120_000 }).bon) {
+        setSprintBad(null);
+        setSprintMessage('Juste !');
+        commitSprint(reussir(e));
+      } else {
+        setSprintBad(move.to);
+        setSprintMessage(`Raté : −${PENALITE_MS / 1000} s`);
+        commitSprint(rater(e));
+        if (tempsRestant(rater(e), Date.now()) <= 0) terminerSprint();
+      }
+    },
+    [commitSprint, moteur, terminerSprint],
+  );
+
+  const onPressSprint = useCallback(
+    (square: number) => {
+      const e = sprintRef.current;
+      if (!e) return;
+      const pos = parseFEN(problemeCourant(e).fen);
+      const decision = toucherCase(pos, sprintSelected, square, 'Q');
+      if (decision.type === 'coup') jouerSprint(decision.move);
+      else if (decision.type === 'refus') setSprintMessage(decision.message);
+      else if (decision.type === 'selection') setSprintSelected(decision.square);
+    },
+    [jouerSprint, sprintSelected],
+  );
+
   const showHint = useCallback(() => {
     const current = sessionRef.current;
     if (!current || current.solved) return;
@@ -294,10 +384,66 @@ export default function PuzzlesScreen() {
     return [...base, [squareName(trace.from), squareName(trace.to), C.blue] as Arrow];
   }, [session?.arrows, trace]);
 
+  // ---- sprint en cours ----
+  if (sprint) {
+    const pz = problemeCourant(sprint);
+    const pos = parseFEN(pz.fen);
+    const restant = tempsRestant(sprint, maintenant);
+    return (
+      <View style={S.screen}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+          <CoachBubble coach="nina" text={sprintMessage} tone={sprintBad !== null ? 'bad' : 'neutral'} />
+          <View style={[S.pad, styles.hud, { justifyContent: 'space-between', paddingBottom: 6 }]}>
+            <Text testID="sprint-score" style={S.statValue}>{sprint.score}</Text>
+            <Text
+              testID="sprint-temps"
+              style={[S.statValue, restant < 20_000 ? { color: C.red } : null]}
+            >
+              {formater(restant)}
+            </Text>
+          </View>
+          <View style={styles.boardWrap}>
+            <ChessBoard
+              position={pos}
+              size={boardSize}
+              theme={progress.settings.board}
+              showCoords={progress.settings.coords}
+              selected={sprintSelected}
+              targets={sprintSelected !== null ? movesFrom(pos, sprintSelected) : []}
+              badges={sprintBad !== null ? { [sprintBad]: 'bad' } : {}}
+              onPressSquare={onPressSprint}
+            />
+          </View>
+        </ScrollView>
+        <ActionBar>
+          <Action label="Passer" testID="sprint-passer" onPress={() => commitSprint({ ...sprint, courant: sprint.courant + 1 })} />
+          <Action label="Terminer" testID="sprint-terminer" primary onPress={terminerSprint} />
+        </ActionBar>
+      </View>
+    );
+  }
+
   // ---- liste des problèmes ----
   if (!session) {
     return (
       <ScrollView style={S.screen} contentContainerStyle={{ paddingBottom: 28 }}>
+        <Dialog
+          visible={sprintFin !== null}
+          title="Sprint terminé !"
+          message={
+            sprintFin === null
+              ? undefined
+              : `${sprintFin} problème${sprintFin > 1 ? 's' : ''} résolu${sprintFin > 1 ? 's' : ''} en ${DUREE_SPRINT_MS / 60000} minutes. +${sprintFin * 8} points.${
+                  sprintFin > progress.sprintBest ? ' Nouveau record !' : ''
+                }`
+          }
+          onClose={() => setSprintFin(null)}
+        >
+          <View style={{ gap: 8 }}>
+            <Button label="Rejouer" onPress={() => { setSprintFin(null); lancerSprint(); }} />
+            <Button label="Fermer" variant="neutral" onPress={() => setSprintFin(null)} />
+          </View>
+        </Dialog>
         <CoachBubble
           coach="nina"
           text={
@@ -311,6 +457,14 @@ export default function PuzzlesScreen() {
           <Text style={S.sectionMeta}>
             {solvedCount}/{PUZZLES.length}
           </Text>
+        </View>
+        <View style={[S.pad, { paddingTop: 12 }]}>
+          <ListItem
+            title="⚡ Sprint · 3 minutes"
+            subtitle={`Un maximum de problèmes en un coup. Ton record : ${progress.sprintBest}`}
+            onPress={lancerSprint}
+            testID="lancer-sprint"
+          />
         </View>
         <View style={S.sectionRow}>
           <Text style={S.sectionTitle}>Parcours</Text>

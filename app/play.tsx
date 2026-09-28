@@ -9,7 +9,7 @@ import { Action, ActionBar, Button, Chips, Dialog, ListItem } from '../src/compo
 import { C, S } from '../src/components/theme';
 import { useProgress } from '../src/chess/ProgressContext';
 import { BOTS, STOCKFISH_NIVEAUX, type Bot } from '../src/chess/content';
-import { finishGame } from '../src/chess/progress';
+import { enregistrerActivite, finishGame } from '../src/chess/progress';
 import { hangingSquare, updateElo } from '../src/chess/ai';
 import { createEngine } from '../src/analysis';
 import { revoirPartie, type CoupRevu } from '../src/analysis/review';
@@ -215,6 +215,8 @@ export default function PlayScreen() {
       } else {
         texte +=
           '\nPartie d’entraînement (coup repris ou indice utilisé) : ton classement ne change pas.';
+        // elle ne touche pas au classement, mais c'est bien une partie jouée : elle compte pour l'objectif du jour
+        update((pr) => enregistrerActivite(pr, 'partie'));
       }
       commit(marquerScoree(p));
       setFinTexte(texte);

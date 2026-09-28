@@ -27,6 +27,21 @@ export interface Settings {
   board: BoardTheme;
 }
 
+/** Objectifs d'une journée : ce que l'élève a fait aujourd'hui. */
+export interface ObjectifsDuJour {
+  /** Jour concerné, `AAAA-MM-JJ` en heure locale ; les compteurs repartent à zéro le lendemain. */
+  jour: string | null;
+  lecons: number;
+  problemes: number;
+  parties: number;
+  /** Le bonus de la journée a déjà été versé. */
+  bonus: boolean;
+}
+
+/** Cibles à atteindre chaque jour pour toucher le bonus. */
+export const CIBLES_DU_JOUR = { lecons: 1, problemes: 3, parties: 1 } as const;
+export const BONUS_DU_JOUR = 50;
+
 export interface Progress {
   xp: number;
   elo: number;
@@ -45,6 +60,9 @@ export interface Progress {
   seenGames: Record<string, boolean>;
   history: GameRecord[];
   settings: Settings;
+  /** Jours consécutifs d'activité — la mesure de régularité qui fait revenir. */
+  serieJours: { dernier: string | null; courante: number; meilleure: number };
+  objectifs: ObjectifsDuJour;
 }
 
 export const emptyProgress = (): Progress => ({
@@ -63,7 +81,74 @@ export const emptyProgress = (): Progress => ({
   seenGames: {},
   history: [],
   settings: { sound: true, vibration: true, coords: true, board: 'foret' },
+  serieJours: { dernier: null, courante: 0, meilleure: 0 },
+  objectifs: { jour: null, lecons: 0, problemes: 0, parties: 0, bonus: false },
 });
+
+// ------------------------------------------------------------ objectifs du jour
+
+const deuxChiffres = (n: number): string => String(n).padStart(2, '0');
+
+/** Jour local au format `AAAA-MM-JJ`. L'heure locale, pas UTC : le jour change à minuit chez l'élève. */
+export const jourLocal = (d: Date = new Date()): string =>
+  `${d.getFullYear()}-${deuxChiffres(d.getMonth() + 1)}-${deuxChiffres(d.getDate())}`;
+
+/** La veille d'un jour `AAAA-MM-JJ`, calendrier compris (fins de mois, années bissextiles). */
+export function veille(jour: string): string {
+  const [a, m, j] = jour.split('-').map(Number);
+  // midi, pour ne pas dépendre d'un changement d'heure
+  return jourLocal(new Date(a, m - 1, j - 1, 12));
+}
+
+export type Activite = 'lecon' | 'probleme' | 'partie';
+
+/**
+ * Enregistre une activité dans la série de jours et les objectifs du jour.
+ *
+ * La série continue si l'élève était déjà actif la veille, repart à un sinon.
+ * Le bonus est versé une seule fois, à l'instant où les trois cibles sont
+ * atteintes, et non à chaque activité supplémentaire.
+ */
+export function enregistrerActivite(p: Progress, activite: Activite, jour: string = jourLocal()): Awarded {
+  let serie = p.serieJours;
+  if (serie.dernier !== jour) {
+    const courante = serie.dernier === veille(jour) ? serie.courante + 1 : 1;
+    serie = { dernier: jour, courante, meilleure: Math.max(serie.meilleure, courante) };
+  }
+  const base: ObjectifsDuJour =
+    p.objectifs.jour === jour
+      ? p.objectifs
+      : { jour, lecons: 0, problemes: 0, parties: 0, bonus: false };
+  const objectifs: ObjectifsDuJour = {
+    ...base,
+    lecons: base.lecons + (activite === 'lecon' ? 1 : 0),
+    problemes: base.problemes + (activite === 'probleme' ? 1 : 0),
+    parties: base.parties + (activite === 'partie' ? 1 : 0),
+  };
+  const atteints =
+    objectifs.lecons >= CIBLES_DU_JOUR.lecons &&
+    objectifs.problemes >= CIBLES_DU_JOUR.problemes &&
+    objectifs.parties >= CIBLES_DU_JOUR.parties;
+  let xp = p.xp;
+  if (atteints && !objectifs.bonus) {
+    xp += BONUS_DU_JOUR;
+    objectifs.bonus = true;
+  }
+  return withTrophies({ ...p, xp, serieJours: serie, objectifs });
+}
+
+/** Objectifs tels qu'il faut les afficher aujourd'hui : ceux d'hier ne comptent plus. */
+export function objectifsAffiches(p: Progress, jour: string = jourLocal()): ObjectifsDuJour {
+  return p.objectifs.jour === jour
+    ? p.objectifs
+    : { jour, lecons: 0, problemes: 0, parties: 0, bonus: false };
+}
+
+/** La série est-elle encore vivante ? Elle s'éteint si ni aujourd'hui ni hier n'ont eu d'activité. */
+export function serieVivante(p: Progress, jour: string = jourLocal()): number {
+  const d = p.serieJours.dernier;
+  return d === jour || d === veille(jour) ? p.serieJours.courante : 0;
+}
 
 export const levelOf = (xp: number): number => Math.floor(xp / XP_PER_LEVEL) + 1;
 export const xpIntoLevel = (xp: number): number => xp % XP_PER_LEVEL;
@@ -120,13 +205,14 @@ export function completeExercise(p: Progress, exerciseId: string, points: number
   });
 }
 
-export function completeLesson(p: Progress, lessonId: string): Awarded {
+export function completeLesson(p: Progress, lessonId: string, jour?: string): Awarded {
   const first = !p.lessons[lessonId];
-  return withTrophies({
+  const fait = withTrophies({
     ...p,
     xp: p.xp + (first ? 25 : 0),
     lessons: { ...p.lessons, [lessonId]: true },
   });
+  return fusionner(fait, enregistrerActivite(fait.progress, 'lecon', jour));
 }
 
 /** Points gagnés pour un problème, selon sa difficulté, le temps et l'aide utilisée. */
@@ -137,22 +223,29 @@ export function puzzleReward(rating: number, seconds: number, failed: boolean, h
   return Math.max(5, reward);
 }
 
+/** Combine deux résultats successifs : l'état final, tous les trophées débloqués. */
+function fusionner(avant: Awarded, apres: Awarded): Awarded {
+  return { progress: apres.progress, unlocked: [...avant.unlocked, ...apres.unlocked] };
+}
+
 export function solvePuzzle(
   p: Progress,
   puzzleId: string,
   opts: { seconds: number; failed: boolean; hinted: boolean },
+  jour?: string,
 ): Awarded {
   const puzzle = PUZZLES.find((x) => x.id === puzzleId);
   const first = !p.puzzles[puzzleId];
   const full = puzzleReward(puzzle?.rating ?? 800, opts.seconds, opts.failed, opts.hinted);
   const streak = opts.failed ? 0 : p.streak + 1;
-  return withTrophies({
+  const fait = withTrophies({
     ...p,
     xp: p.xp + (first ? full : Math.round(full / 3)),
     streak,
     bestStreak: Math.max(p.bestStreak, streak),
     puzzles: { ...p.puzzles, [puzzleId]: true },
   });
+  return fusionner(fait, enregistrerActivite(fait.progress, 'probleme', jour));
 }
 
 /** Remet la série à zéro après une erreur sur un problème. */
@@ -163,9 +256,10 @@ export function finishGame(
   bot: string,
   result: GameRecord['result'],
   newElo: number,
+  jour?: string,
 ): Awarded {
   const record: GameRecord = { bot, result, eloDelta: newElo - p.elo };
-  return withTrophies({
+  const fait = withTrophies({
     ...p,
     elo: newElo,
     xp: p.xp + (result === 'win' ? 50 : 0),
@@ -175,6 +269,7 @@ export function finishGame(
     // on ne garde que les vingt dernières parties
     history: [...p.history, record].slice(-20),
   });
+  return fusionner(fait, enregistrerActivite(fait.progress, 'partie', jour));
 }
 
 export const finishSprint = (p: Progress, score: number): Awarded =>
@@ -204,6 +299,29 @@ function drapeaux(v: unknown): Record<string, boolean> {
 }
 
 const RESULTATS: readonly GameRecord['result'][] = ['win', 'loss', 'draw'];
+
+const estJour = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+function normaliserSerie(v: unknown): Progress['serieJours'] {
+  const o = v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  const courante = entier(o.courante, 0, 0, 100_000);
+  return {
+    dernier: estJour(o.dernier) ? o.dernier : null,
+    courante,
+    meilleure: Math.max(courante, entier(o.meilleure, 0, 0, 100_000)),
+  };
+}
+
+function normaliserObjectifs(v: unknown): ObjectifsDuJour {
+  const o = v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  return {
+    jour: estJour(o.jour) ? o.jour : null,
+    lecons: entier(o.lecons, 0, 0, 10_000),
+    problemes: entier(o.problemes, 0, 0, 10_000),
+    parties: entier(o.parties, 0, 0, 10_000),
+    bonus: o.bonus === true,
+  };
+}
 
 /**
  * Remet en état un état lu du disque.
@@ -245,6 +363,8 @@ export function normalize(raw: unknown): Progress {
           estNombre((h as GameRecord).eloDelta),
       )
       .slice(-20),
+    serieJours: normaliserSerie(d.serieJours),
+    objectifs: normaliserObjectifs(d.objectifs),
     settings: {
       sound: typeof reglages.sound === 'boolean' ? reglages.sound : base.settings.sound,
       coords: typeof reglages.coords === 'boolean' ? reglages.coords : base.settings.coords,
