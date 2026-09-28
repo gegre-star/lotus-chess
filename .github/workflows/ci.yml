@@ -7,6 +7,12 @@ on:
     branches: [main]
   pull_request:
 
+# Lecture seule : ce job ne fait que vérifier. Sans ce bloc, le jeton du
+# workflow reçoit les droits par défaut du dépôt, souvent en lecture ET écriture
+# — inutile, et dangereux si une dépendance compromise s'exécute pendant `npm ci`.
+permissions:
+  contents: read
+
 # Une nouvelle poussée sur une branche annule la vérification précédente,
 # qui porte de toute façon sur du code dépassé.
 concurrency:
@@ -24,7 +30,7 @@ jobs:
       - name: Installer Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # `npm ci` installe exactement ce que décrit package-lock.json :
@@ -37,3 +43,15 @@ jobs:
 
       - name: Lancer les tests
         run: npm test -- --ci
+
+      # Le site est construit et finalisé comme au déploiement : si Expo change
+      # son gabarit HTML, `finaliser-web.mjs` échoue ici, avant la fusion, et non
+      # au moment de publier. Il vérifie aussi que le manifeste, les icônes et
+      # le service worker (hors ligne) sont bien produits.
+      - name: Vérifier que le site web se construit et se finalise
+        run: |
+          npx expo export --platform web --output-dir dist
+          node scripts/finaliser-web.mjs dist
+        env:
+          LOTUS_BASE_URL: /lotus-chess
+          EXPO_NO_TELEMETRY: '1'
