@@ -476,6 +476,15 @@ export class Chercheur {
     return suite;
   }
 
+  /** Score exact d'un coup donné, en fenêtre complète, du point de vue de celui qui le joue. */
+  scorerCoup(p: Plateau, m: number, lim: Limites): number {
+    this.preparer(p, lim);
+    p.faire(m);
+    const score = -this.negamax(Math.max(0, lim.profondeur - 1), -INF, INF, 1, true);
+    p.defaire();
+    return score;
+  }
+
   /**
    * Score de chaque coup de la racine, dans une fenêtre autour du meilleur.
    *

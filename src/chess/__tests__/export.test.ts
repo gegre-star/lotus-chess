@@ -169,3 +169,20 @@ describe('PGN', () => {
     expect(c.getHeaders().Black).toBe('Cyrano');
   });
 });
+
+describe('peut-on encore mater ?', () => {
+  // import tardif : le fichier n'exporte rien d'autre de materiel.ts que bilanMateriel et POINTS
+  const { peutMater } = jest.requireActual('../materiel') as typeof import('../materiel');
+  test.each([
+    ['roi seul', '4k3/8/8/8/8/8/8/4K3 w - - 0 1', 'w', false],
+    ['roi et fou', '4k3/8/8/8/8/8/8/3BK3 w - - 0 1', 'w', false],
+    ['roi et cavalier', '4k3/8/8/8/8/8/8/3NK3 w - - 0 1', 'w', false],
+    ['roi et deux cavaliers', '4k3/8/8/8/8/8/8/2N1KN2 w - - 0 1', 'w', true],
+    ['roi et pion', '4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', 'w', true],
+    ['roi et tour', '4k3/8/8/8/8/8/8/R3K3 w - - 0 1', 'w', true],
+    ['le camp adverse n’a que le roi', '4k3/8/8/8/8/8/8/R3K3 w - - 0 1', 'b', false],
+    ['un fou et un cavalier', '4k3/8/8/8/8/8/8/2B1KN2 w - - 0 1', 'w', true],
+  ])('%s', (_nom, fen, camp, attendu) => {
+    expect(peutMater(parseFEN(fen), camp as 'w' | 'b')).toBe(attendu);
+  });
+});

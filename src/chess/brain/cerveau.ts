@@ -23,7 +23,7 @@
 import type { Move, Position } from '../engine';
 import { legalMoves, squareName } from '../engine';
 import { Chercheur, MAT, MAT_LIMITE, type Limites } from './recherche';
-import { F_PRISE, Plateau, deCase, drapDe, promoDe, versCase } from './plateau';
+import { F_PRISE, Plateau, coupsLegaux, deCase, drapDe, promoDe, versCase } from './plateau';
 
 export interface Niveau {
   /** Profondeur maximale de recherche, en demi-coups. */
@@ -50,6 +50,20 @@ export interface Contexte {
   coups?: Move[];
   /** Source d'aléa, injectable pour des tests reproductibles. */
   hasard?: () => number;
+}
+
+/** Écart toléré, en centièmes de pion, pour accepter un coup aussi bon que le meilleur. */
+export const MARGE_JUGEMENT = 30;
+
+export interface Jugement {
+  /** Le coup est-il au moins aussi bon que le meilleur, à la marge près ? */
+  bon: boolean;
+  /** Meilleur coup de la position, en UCI. */
+  meilleur: string | null;
+  /** Scores du point de vue de celui qui joue, en centièmes de pion. */
+  scoreMeilleur: number;
+  scoreJoue: number;
+  perte: number;
 }
 
 export interface Analyse {
@@ -162,6 +176,47 @@ export class Cerveau {
       if (tirage <= 0) return this.versMove(pos, ajustees[i].coup);
     }
     return this.versMove(pos, meilleur.coup);
+  }
+
+  /**
+   * Ce coup est-il aussi bon que le meilleur de la position ?
+   *
+   * Sert à juger un coup d'élève (problèmes, exercices). Le calcul est borné
+   * en **nœuds** et non en temps : le verdict doit être le même sur un iPhone
+   * lent et sur un ordinateur rapide, sinon un problème serait réussi ou raté
+   * selon la machine.
+   */
+  jugerCoup(
+    pos: Position,
+    coup: Move,
+    opts: { profondeur?: number; noeuds?: number } = {},
+  ): Jugement {
+    this.chercheur.oublier();
+    this.plateau.charger(pos);
+    const lim: Limites = {
+      profondeur: opts.profondeur ?? 7,
+      noeuds: opts.noeuds ?? 350_000,
+      qmax: 8,
+    };
+    const meilleur = this.chercheur.chercher(this.plateau, lim);
+    if (!meilleur) return { bon: true, meilleur: null, scoreMeilleur: 0, scoreJoue: 0, perte: 0 };
+    const entier = coupsLegaux(this.plateau).find(
+      (m) =>
+        deCase(m) === coup.from &&
+        versCase(m) === coup.to &&
+        (promoDe(m) === 0 ? !coup.promotion : 'NBRQ'[promoDe(m) - 2] === coup.promotion),
+    );
+    if (entier === undefined) return { bon: false, meilleur: this.uci(meilleur.coup), scoreMeilleur: meilleur.score, scoreJoue: -MAT, perte: 2 * MAT };
+    const joue = entier === meilleur.coup ? meilleur.score : this.chercheur.scorerCoup(this.plateau, entier, lim);
+    // sur un mat on exige le plus rapide : un mat plus lent est un autre coup
+    const tolerance = meilleur.score >= MAT_LIMITE ? 0 : MARGE_JUGEMENT;
+    return {
+      bon: joue >= meilleur.score - tolerance,
+      meilleur: this.uci(meilleur.coup),
+      scoreMeilleur: meilleur.score,
+      scoreJoue: joue,
+      perte: Math.max(0, meilleur.score - joue),
+    };
   }
 
   /** Analyse à pleine force : meilleur coup, évaluation et variante. */

@@ -9,6 +9,7 @@ import { markGameSeen } from '../src/chess/progress';
 import { GAMES, type FamousGame } from '../src/chess/content';
 import { createEngine } from '../src/analysis';
 import { toucherCase } from '../src/chess/interaction';
+import { PromotionDialog } from '../src/components/PromotionDialog';
 import { comparerAuMaitre, commenter, type Comparaison } from '../src/analysis/comparer';
 import {
   START_FEN,
@@ -43,6 +44,7 @@ export default function GamesScreen() {
   const [selected, setSelected] = useState<number | null>(null);
   /** Pourquoi le dernier coup tenté a été refusé — jamais de refus muet. */
   const [refus, setRefus] = useState<string | null>(null);
+  const [promo, setPromo] = useState<Move[] | null>(null);
   const [comparaison, setComparaison] = useState<Comparaison | null>(null);
   const [reflexion, setReflexion] = useState(false);
   const [revele, setRevele] = useState(false);
@@ -126,10 +128,7 @@ export default function GamesScreen() {
         return;
       }
       if (decision.type === 'promotion') {
-        // provisoire : la dame, en attendant le dialogue de choix
-        setSelected(null);
-        setRefus(null);
-        void proposer(decision.candidats.find((m) => m.promotion === 'Q') ?? decision.candidats[0]);
+        setPromo(decision.candidats);
         return;
       }
       setRefus(null);
@@ -243,6 +242,17 @@ export default function GamesScreen() {
         />
         <Action testID="parties-quitter" label="Quitter" onPress={() => setGame(null)} />
       </ActionBar>
+      <PromotionDialog
+        candidats={promo}
+        blanc={position?.turn === 'w'}
+        onChoisir={(m) => {
+          setPromo(null);
+          setSelected(null);
+          setRefus(null);
+          void proposer(m);
+        }}
+        onAnnuler={() => setPromo(null)}
+      />
     </View>
   );
 }

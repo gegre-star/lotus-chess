@@ -67,3 +67,26 @@ export function bilanMateriel(pos: Position): Bilan {
     ORDRE.reduce((total, t) => total + n[t] * POINTS[t], 0);
   return { prisesParBlanc, prisesParNoir, ecart: somme(blanc) - somme(noir) };
 }
+
+/**
+ * Ce camp dispose-t-il encore de quoi mater, en supposant que l'adversaire l'y aide ?
+ *
+ * Sert à trancher une partie perdue au temps : la FIDE la déclare nulle si le
+ * camp qui a encore du temps ne peut plus mater par aucune suite de coups
+ * légaux. Un pion, une tour ou une dame suffisent ; il faut au moins deux
+ * pièces mineures sinon (deux cavaliers ne forcent rien, mais peuvent mater si
+ * le défenseur se trompe, donc ils comptent). C'est une approximation
+ * volontairement prudente : dans le doute, on ne déclare pas la nulle.
+ */
+export function peutMater(pos: Position, camp: Color): boolean {
+  let mineures = 0;
+  for (const piece of pos.board) {
+    if (!piece || piece.toLowerCase() === 'k') continue;
+    const blanc = piece === piece.toUpperCase();
+    if ((camp === 'w') !== blanc) continue;
+    const type = piece.toUpperCase();
+    if (type === 'P' || type === 'R' || type === 'Q') return true;
+    mineures += 1;
+  }
+  return mineures >= 2;
+}

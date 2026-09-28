@@ -18,9 +18,9 @@ export const NIVEAUX: Record<string, Niveau> = {
   // par des coups plausibles : il développe, il prend ce qui traîne.
   pixou: { profondeur: 2, tempsMs: 0, qmax: 0, temperature: 130, distraction: 0.35 },
   marguerite: { profondeur: 2, tempsMs: 0, qmax: 2, temperature: 80, distraction: 0.2 },
-  hugo: { profondeur: 3, tempsMs: 0, qmax: 3, temperature: 60, distraction: 0.14 },
-  cyrano: { profondeur: 4, tempsMs: 450, qmax: 6, temperature: 30, distraction: 0.06 },
-  athena: { profondeur: 6, tempsMs: 900, qmax: 8, temperature: 10, distraction: 0 },
+  hugo: { profondeur: 2, tempsMs: 0, qmax: 4, temperature: 50, distraction: 0.08 },
+  cyrano: { profondeur: 3, tempsMs: 350, qmax: 4, temperature: 40, distraction: 0.08 },
+  athena: { profondeur: 5, tempsMs: 600, qmax: 6, temperature: 15, distraction: 0 },
 };
 
 /**

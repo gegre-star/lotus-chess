@@ -59,6 +59,11 @@ export interface Partie {
    * Sans cela, reprendre chaque gaffe revenait à ne jamais perdre.
    */
   annulations: number;
+  /**
+   * Nombre d'indices demandés. Un indice donne le coup : comme un coup repris,
+   * il fait de la partie une partie d'entraînement.
+   */
+  indices: number;
   debut: number;
   pendule: Pendule | null;
 }
@@ -78,6 +83,7 @@ export function nouvellePartie(bot: Bot, side: Color, pendule: Pendule | null = 
     fin: null,
     scoree: false,
     annulations: 0,
+    indices: 0,
     debut: Date.now(),
     pendule,
   };
@@ -168,6 +174,12 @@ export function perdreAuTemps(p: Partie, camp: Color, autreNePeutMater: boolean)
   };
 }
 
+/** La partie compte-t-elle pour le classement ? Ni coup repris, ni indice. */
+export const estClassee = (p: Partie): boolean => p.annulations === 0 && p.indices === 0;
+
+/** Enregistre qu'un indice a été demandé. */
+export const avecIndice = (p: Partie): Partie => ({ ...p, indices: p.indices + 1 });
+
 /** Marque la partie comme comptée. */
 export const marquerScoree = (p: Partie): Partie => (p.scoree ? p : { ...p, scoree: true });
 
@@ -182,6 +194,7 @@ export interface Sauvegarde {
   /** Coups en notation UCI. */
   moves: string[];
   annulations: number;
+  indices: number;
   debut: number;
   pendule: Pendule | null;
 }
@@ -197,6 +210,7 @@ export function versSauvegarde(p: Partie): Sauvegarde {
     side: p.side,
     moves: p.moves.map(uci),
     annulations: p.annulations,
+    indices: p.indices,
     debut: p.debut,
     pendule: p.pendule,
   };
@@ -234,6 +248,7 @@ export function depuisSauvegarde(sauve: unknown, bots: Bot[]): Partie | null {
     ...partie,
     annulations:
       typeof s.annulations === 'number' && s.annulations > 0 ? Math.floor(s.annulations) : 0,
+    indices: typeof s.indices === 'number' && s.indices > 0 ? Math.floor(s.indices) : 0,
     debut: typeof s.debut === 'number' ? s.debut : Date.now(),
     pendule: s.pendule ?? null,
   };
