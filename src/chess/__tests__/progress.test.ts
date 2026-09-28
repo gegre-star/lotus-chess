@@ -206,7 +206,7 @@ describe('lecture d’un état sauvegardé', () => {
     const restored = normalize({ xp: 120, settings: { sound: false } });
     expect(restored.xp).toBe(120);
     expect(restored.elo).toBe(800);
-    expect(restored.settings).toEqual({ sound: false, coords: true, board: 'foret' });
+    expect(restored.settings).toEqual({ sound: false, vibration: true, coords: true, board: 'foret' });
     expect(restored.history).toEqual([]);
   });
 

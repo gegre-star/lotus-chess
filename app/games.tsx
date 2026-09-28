@@ -125,6 +125,13 @@ export default function GamesScreen() {
         setRefus(decision.message);
         return;
       }
+      if (decision.type === 'promotion') {
+        // provisoire : la dame, en attendant le dialogue de choix
+        setSelected(null);
+        setRefus(null);
+        void proposer(decision.candidats.find((m) => m.promotion === 'Q') ?? decision.candidats[0]);
+        return;
+      }
       setRefus(null);
       setSelected(decision.square);
     },

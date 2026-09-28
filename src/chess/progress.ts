@@ -21,6 +21,8 @@ export interface GameRecord {
 
 export interface Settings {
   sound: boolean;
+  /** Vibration à chaque coup (iPhone : non pris en charge par Safari). */
+  vibration: boolean;
   coords: boolean;
   board: BoardTheme;
 }
@@ -60,7 +62,7 @@ export const emptyProgress = (): Progress => ({
   trophies: {},
   seenGames: {},
   history: [],
-  settings: { sound: true, coords: true, board: 'foret' },
+  settings: { sound: true, vibration: true, coords: true, board: 'foret' },
 });
 
 export const levelOf = (xp: number): number => Math.floor(xp / XP_PER_LEVEL) + 1;
@@ -185,40 +187,124 @@ export const finishSprint = (p: Progress, score: number): Awarded =>
 export const markGameSeen = (p: Progress, gameId: string): Awarded =>
   withTrophies({ ...p, seenGames: { ...p.seenGames, [gameId]: true } });
 
-/** Fusionne un état lu du disque avec les valeurs par défaut (montées de version). */
+const THEMES: readonly BoardTheme[] = ['foret', 'ocean', 'bois', 'nuit'];
+
+const estNombre = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const entier = (v: unknown, defaut: number, min: number, max: number): number =>
+  estNombre(v) ? Math.min(max, Math.max(min, Math.round(v))) : defaut;
+
+/** Ne garde d'un dictionnaire que ses entrées `true` : les seules qui signifient quelque chose. */
+function drapeaux(v: unknown): Record<string, boolean> {
+  const sortie: Record<string, boolean> = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return sortie;
+  for (const [cle, valeur] of Object.entries(v as Record<string, unknown>)) {
+    if (valeur === true) sortie[cle] = true;
+  }
+  return sortie;
+}
+
+const RESULTATS: readonly GameRecord['result'][] = ['win', 'loss', 'draw'];
+
+/**
+ * Remet en état un état lu du disque.
+ *
+ * Une sauvegarde peut être ancienne, tronquée ou corrompue, et `...data` ne
+ * vérifiait rien : un thème inconnu faisait planter l'échiquier, un classement
+ * « abc » traversait toute l'application, une liste de leçons réduite à une
+ * chaîne donnait un trophée. Chaque champ est donc contrôlé, et ramené à sa
+ * valeur par défaut s'il n'a pas le bon type.
+ */
 export function normalize(raw: unknown): Progress {
   const base = emptyProgress();
-  if (!raw || typeof raw !== 'object') return base;
-  const data = raw as Partial<Progress>;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return base;
+  const d = raw as Record<string, unknown>;
+  const reglages = d.settings && typeof d.settings === 'object' ? (d.settings as Record<string, unknown>) : {};
+  const historique = Array.isArray(d.history) ? d.history : [];
   return {
-    ...base,
-    ...data,
-    settings: { ...base.settings, ...(data.settings ?? {}) },
-    lessons: data.lessons ?? {},
+    xp: entier(d.xp, base.xp, 0, 10_000_000),
+    elo: entier(d.elo, base.elo, 100, 4000),
+    streak: entier(d.streak, 0, 0, 100_000),
+    bestStreak: entier(d.bestStreak, 0, 0, 100_000),
+    wins: entier(d.wins, 0, 0, 1_000_000),
+    losses: entier(d.losses, 0, 0, 1_000_000),
+    draws: entier(d.draws, 0, 0, 1_000_000),
+    sprintBest: entier(d.sprintBest, 0, 0, 100_000),
+    lessons: drapeaux(d.lessons),
     // absent des sauvegardes antérieures aux exercices
-    exercises: data.exercises ?? {},
-    puzzles: data.puzzles ?? {},
-    trophies: data.trophies ?? {},
-    seenGames: data.seenGames ?? {},
-    history: Array.isArray(data.history) ? data.history : [],
+    exercises: drapeaux(d.exercises),
+    puzzles: drapeaux(d.puzzles),
+    trophies: drapeaux(d.trophies),
+    seenGames: drapeaux(d.seenGames),
+    history: historique
+      .filter(
+        (h): h is GameRecord =>
+          !!h &&
+          typeof h === 'object' &&
+          typeof (h as GameRecord).bot === 'string' &&
+          RESULTATS.includes((h as GameRecord).result) &&
+          estNombre((h as GameRecord).eloDelta),
+      )
+      .slice(-20),
+    settings: {
+      sound: typeof reglages.sound === 'boolean' ? reglages.sound : base.settings.sound,
+      coords: typeof reglages.coords === 'boolean' ? reglages.coords : base.settings.coords,
+      board: THEMES.includes(reglages.board as BoardTheme)
+        ? (reglages.board as BoardTheme)
+        : base.settings.board,
+      vibration:
+        typeof reglages.vibration === 'boolean' ? reglages.vibration : base.settings.vibration,
+    },
   };
 }
 
-export async function loadProgress(): Promise<Progress> {
+export interface Lecture {
+  progress: Progress;
+  /**
+   * Faux quand la lecture a échoué (stockage indisponible). Il ne faut alors
+   * rien écrire par-dessus : l'état en mémoire est vide, et le remplacer par
+   * lui effacerait la progression de l'élève pour une panne passagère.
+   */
+  fiable: boolean;
+}
+
+const CLE_CORROMPUE = `${STORAGE_KEY}:corrompu`;
+
+/**
+ * Relit la sauvegarde.
+ *
+ * Une donnée **illisible** (JSON invalide) est mise de côté sous une autre clé
+ * avant d'être remplacée : on ne détruit jamais ce qu'on n'a pas su lire, un
+ * correctif ultérieur pourrait le récupérer. Un **échec de lecture** est
+ * différent : le contenu existe peut-être encore, on le signale et on
+ * s'interdit d'écrire.
+ */
+export async function loadProgress(): Promise<Lecture> {
+  let brut: string | null;
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    return normalize(raw ? JSON.parse(raw) : null);
+    brut = await AsyncStorage.getItem(STORAGE_KEY);
   } catch {
-    // stockage indisponible : on joue quand même, sans sauvegarde
-    return emptyProgress();
+    return { progress: emptyProgress(), fiable: false };
+  }
+  if (!brut) return { progress: emptyProgress(), fiable: true };
+  try {
+    return { progress: normalize(JSON.parse(brut)), fiable: true };
+  } catch {
+    try {
+      await AsyncStorage.setItem(CLE_CORROMPUE, brut);
+    } catch {
+      // la copie de secours est un plus : sans elle on repart quand même
+    }
+    return { progress: emptyProgress(), fiable: true };
   }
 }
 
-export async function saveProgress(p: Progress): Promise<void> {
+/** Enregistre. Rend `false` si le stockage a refusé (plein, mode privé). */
+export async function saveProgress(p: Progress): Promise<boolean> {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+    return true;
   } catch {
-    // rien à faire : la partie en cours reste jouable
+    return false;
   }
 }
 

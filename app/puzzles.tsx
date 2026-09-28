@@ -149,7 +149,11 @@ export default function PuzzlesScreen() {
           };
         }
 
-        const move = decision.move;
+        // provisoire : la dame, en attendant le dialogue de choix
+        const move =
+          decision.type === 'promotion'
+            ? (decision.candidats.find((m) => m.promotion === 'Q') ?? decision.candidats[0])
+            : decision.move;
         if (!isGoodMove(position, move)) {
           update((p) => ({ progress: failPuzzle(p), unlocked: [] }));
           return {

@@ -18,9 +18,10 @@ import {
   type GameStatus,
   type Color,
   type Move,
+  type PieceType,
   type Position,
 } from './engine';
-import { expliquerRefus } from './coaching';
+import { expliquerRefus, expliquerRoque } from './coaching';
 
 /**
  * Temps minimal avant que l'adversaire ne réponde.
@@ -42,7 +43,15 @@ export type Decision =
   /** On change (ou on annule) la pièce sélectionnée. */
   | { type: 'selection'; square: number | null }
   /** Le coup est refusé, et on dit pourquoi. */
-  | { type: 'refus'; message: string };
+  | { type: 'refus'; message: string }
+  /**
+   * Un pion arrive au bout : c'est à l'élève de choisir la pièce.
+   *
+   * Promouvoir toujours en dame privait l'élève de la sous-promotion, qui
+   * décide parfois de la partie : `8/6P1/5K1k/8/6B1/3B4/8/8`, `g8=D` est pat
+   * alors que `g8=C` est mat.
+   */
+  | { type: 'promotion'; candidats: Move[] };
 
 /**
  * Décide de l'effet d'un toucher sur `square`, la pièce `selected` étant déjà
@@ -55,13 +64,17 @@ export function toucherCase(
   pos: Position,
   selected: number | null,
   square: number,
+  /** Promotion imposée d'avance (leçons) ; absente, on demande à l'élève. */
+  promotionAuto?: PieceType,
 ): Decision {
   if (selected !== null) {
     const candidats = movesFrom(pos, selected).filter((m) => m.to === square);
     if (candidats.length > 0) {
-      // à défaut de dialogue de promotion, la dame — c'est le choix dans plus
-      // de neuf promotions sur dix
-      return { type: 'coup', move: candidats.find((m) => m.promotion === 'Q') ?? candidats[0] };
+      if (candidats.length > 1 && candidats.every((m) => m.promotion)) {
+        const imposee = promotionAuto && candidats.find((m) => m.promotion === promotionAuto);
+        return imposee ? { type: 'coup', move: imposee } : { type: 'promotion', candidats };
+      }
+      return { type: 'coup', move: candidats[0] };
     }
     // toucher sa propre tour est l'autre geste courant pour roquer
     const roque = castleByRook(pos, selected, square);
@@ -71,7 +84,7 @@ export function toucherCase(
     // une capture évidente, elle est refusée, et rien ne l'éclaire. On
     // explique d'abord le coup précis qu'il vient de tenter — c'est cela
     // qu'il cherche à comprendre, avant l'état général de la position.
-    const pourquoi = expliquerRefus(pos, selected, square);
+    const pourquoi = expliquerRoque(pos, selected, square) ?? expliquerRefus(pos, selected, square);
     if (pourquoi) return { type: 'refus', message: pourquoi };
 
     // Sur un échec, annoncer la menace ne suffit pas : quand une seule pièce

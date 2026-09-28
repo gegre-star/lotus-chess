@@ -326,6 +326,12 @@ export default function PlayScreen() {
         if (decision.type === 'refus') {
           return { ...g, selected: null, aideEchec: true, message: decision.message, tone: 'bad' };
         }
+        if (decision.type === 'promotion') {
+          // provisoire : la dame, en attendant le dialogue de choix
+          const dame = decision.candidats.find((m) => m.promotion === 'Q') ?? decision.candidats[0];
+          effacerTrace();
+          return { ...applyMove(g, dame), aideEchec: false };
+        }
         return { ...g, selected: decision.square };
       });
     },

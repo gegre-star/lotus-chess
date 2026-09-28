@@ -33,7 +33,8 @@ function graine(seed: number): () => number {
 const deuxTouchers = (pos: Position, from: number, to: number) => {
   const premier = toucherCase(pos, null, from);
   expect(premier).toEqual({ type: 'selection', square: from });
-  return toucherCase(pos, from, to);
+  // une promotion demande un choix : ici on prend la dame, comme le ferait l'élève
+  return toucherCase(pos, from, to, 'Q');
 };
 
 describe('roi en échec prenant un pion voisin', () => {
@@ -187,9 +188,18 @@ describe('le geste ordinaire reste intact', () => {
     if (decision.type === 'coup') expect(decision.move.castle).toBe('K');
   });
 
-  test('la promotion choisit la dame', () => {
+  test('la promotion demande à l’élève quelle pièce il veut', () => {
     const pos = parseFEN('8/4P3/8/8/8/8/8/K6k w - - 0 1');
     const decision = toucherCase(pos, squareFromName('e7'), squareFromName('e8'));
+    expect(decision.type).toBe('promotion');
+    if (decision.type === 'promotion') {
+      expect(decision.candidats.map((m) => m.promotion).sort()).toEqual(['B', 'N', 'Q', 'R']);
+    }
+  });
+
+  test('une promotion imposée d’avance se joue directement', () => {
+    const pos = parseFEN('8/4P3/8/8/8/8/8/K6k w - - 0 1');
+    const decision = toucherCase(pos, squareFromName('e7'), squareFromName('e8'), 'Q');
     expect(decision.type).toBe('coup');
     if (decision.type === 'coup') expect(decision.move.promotion).toBe('Q');
   });

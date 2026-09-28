@@ -111,6 +111,11 @@ export default function TrainScreen() {
         setRefus(decision.message);
         return;
       }
+      if (decision.type === 'promotion') {
+        // provisoire : la dame, en attendant le dialogue de choix
+        proposer(decision.candidats.find((m) => m.promotion === 'Q') ?? decision.candidats[0]);
+        return;
+      }
       setRefus(null);
       setSelected(decision.square);
     },

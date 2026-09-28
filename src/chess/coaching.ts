@@ -16,6 +16,9 @@
 import {
   attackers,
   colorOf,
+  fileOf,
+  rankOf,
+  sq,
   findKing,
   inCheck,
   isAttacked,
@@ -318,4 +321,60 @@ export function expliquerRefus(pos: Position, from: number, to: number): string 
   return qui
     ? `Cette pièce est clouée : la bouger découvrirait ton roi sur ${qui}.`
     : 'Cette pièce est clouée : la bouger découvrirait ton roi.';
+}
+
+/**
+ * Pourquoi ne peut-on pas roquer ?
+ *
+ * Le roque est le coup dont l'interdiction paraît le plus arbitraire à un
+ * débutant : quatre conditions indépendantes, et rien à l'écran ne dit
+ * laquelle manque. On les teste dans l'ordre où un joueur les vérifie —
+ * droit perdu, roi en échec, pièces entre le roi et la tour, cases traversées
+ * attaquées — et on nomme ce qui gêne.
+ *
+ * Reconnaît les deux gestes : le roi vers sa case d'arrivée (deux cases), ou le
+ * roi vers sa propre tour. Rend `null` si le geste n'est pas une tentative de
+ * roque, ou si le roque est en fait légal.
+ */
+export function expliquerRoque(pos: Position, from: number, to: number): string | null {
+  const piece = pos.board[from];
+  if (!piece || typeOf(piece) !== 'K' || colorOf(piece) !== pos.turn) return null;
+  const camp = pos.turn;
+  const rang = camp === 'w' ? 0 : 7;
+  if (from !== sq(4, rang)) return null;
+
+  const cible = pos.board[to];
+  const versTour = cible && typeOf(cible) === 'R' && colorOf(cible) === camp && rankOf(to) === rang;
+  const versArrivee = rankOf(to) === rang && Math.abs(fileOf(to) - 4) === 2;
+  if (!versTour && !versArrivee) return null;
+  if (versTour && fileOf(to) !== 0 && fileOf(to) !== 7) return null;
+
+  const petit = fileOf(to) > 4;
+  const droit = camp === 'w' ? (petit ? pos.castling.K : pos.castling.Q) : petit ? pos.castling.k : pos.castling.q;
+  const adverse: Color = camp === 'w' ? 'b' : 'w';
+  const cote = petit ? 'petit roque' : 'grand roque';
+
+  if (!droit) {
+    return `Tu ne peux plus faire le ${cote} : le roi ou la tour de ce côté a déjà bougé.`;
+  }
+  if (inCheck(pos, camp)) return 'Tu ne peux pas roquer : ton roi est en échec.';
+
+  // pièces entre le roi (colonne e) et la tour (colonne h ou a)
+  const entre = petit ? [5, 6] : [3, 2, 1];
+  const gene = entre.map((f) => sq(f, rang)).find((c) => pos.board[c]);
+  if (gene !== undefined) {
+    return `Tu ne peux pas roquer : ${nommerPiece(pos, gene)} est entre ton roi et ta tour.`;
+  }
+
+  // cases que le roi traverse, puis celle où il arrive (la case b n'est pas traversée)
+  const traversees = petit ? [5, 6] : [3, 2];
+  for (const f of traversees) {
+    const c = sq(f, rang);
+    const gardiens = attackers(pos, c, adverse);
+    if (gardiens.length > 0) {
+      const role = f === traversees[traversees.length - 1] ? 'arriverait' : 'traverserait';
+      return `Tu ne peux pas roquer : ton roi ${role} en ${squareName(c)}, contrôlée par ${enumerer(pos, gardiens)}.`;
+    }
+  }
+  return null;
 }

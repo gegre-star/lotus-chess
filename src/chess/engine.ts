@@ -69,32 +69,69 @@ export const isWhite = (p: Piece): boolean => p === p.toUpperCase();
 export const colorOf = (p: Piece | null): Color | null => (p ? (isWhite(p) ? 'w' : 'b') : null);
 const typeOf = (p: Piece): PieceType => p.toUpperCase() as PieceType;
 
+/**
+ * Lit un FEN, en refusant ce qui ne décrit pas une position d'échecs.
+ *
+ * Toutes les positions de l'application viennent du code, mais un FEN
+ * défectueux ne produisait aucune erreur : une rangée trop longue écrivait
+ * hors du tableau, un caractère inconnu devenait une case bloquée, un roi
+ * absent faisait afficher une partie en cours. Le moteur, lui, n'a de sens
+ * que sur des positions légales — mieux vaut échouer tout de suite, avec un
+ * message qui dit ce qui cloche.
+ *
+ * Les droits de roque sans le roi ou la tour à leur place sont retirés plutôt
+ * que refusés : c'est ce que font les autres logiciels, et sinon le moteur
+ * proposerait un roque impossible.
+ */
 export function parseFEN(fen: string): Position {
   const parts = fen.trim().split(/\s+/);
-  const [placement, turn, castling, ep, halfmove, fullmove] = parts;
+  const [placement, turn = 'w', castling = '-', ep = '-', halfmove, fullmove] = parts;
+  if (!placement) throw new Error('FEN invalide : chaîne vide');
+  if (turn !== 'w' && turn !== 'b') throw new Error(`FEN invalide : trait « ${turn} »`);
+
+  const rows = placement.split('/');
+  if (rows.length !== 8) {
+    throw new Error(`FEN invalide : 8 rangées attendues, ${rows.length} trouvées`);
+  }
   const board: (Piece | null)[] = new Array(64).fill(null);
-  placement.split('/').forEach((row, i) => {
+  const kings = { K: 0, k: 0 };
+  rows.forEach((row, i) => {
     const rank = 7 - i;
     let file = 0;
     for (const ch of row) {
-      if (/\d/.test(ch)) {
+      if (/[1-8]/.test(ch)) {
         file += Number(ch);
-      } else {
+      } else if ('PNBRQKpnbrqk'.includes(ch)) {
+        if (file > 7) throw new Error(`FEN invalide : rangée ${rank + 1} trop longue`);
+        if ((ch === 'P' || ch === 'p') && (rank === 0 || rank === 7)) {
+          throw new Error(`FEN invalide : pion sur la rangée ${rank + 1}`);
+        }
+        if (ch === 'K' || ch === 'k') kings[ch] += 1;
         board[sq(file, rank)] = ch as Piece;
         file += 1;
+      } else {
+        throw new Error(`FEN invalide : caractère « ${ch} »`);
       }
     }
+    if (file !== 8) throw new Error(`FEN invalide : la rangée ${rank + 1} compte ${file} cases`);
   });
+  if (kings.K !== 1 || kings.k !== 1) {
+    throw new Error(`FEN invalide : il faut un roi par camp (${kings.K} blanc, ${kings.k} noir)`);
+  }
+  if (!/^(-|[KQkq]+)$/.test(castling)) throw new Error(`FEN invalide : roques « ${castling} »`);
+  if (ep !== '-' && !/^[a-h][36]$/.test(ep)) throw new Error(`FEN invalide : prise en passant « ${ep} »`);
+
+  const a = (name: string, piece: Piece) => board[squareFromName(name)] === piece;
   return {
     board,
-    turn: turn === 'b' ? 'b' : 'w',
+    turn,
     castling: {
-      K: castling.includes('K'),
-      Q: castling.includes('Q'),
-      k: castling.includes('k'),
-      q: castling.includes('q'),
+      K: castling.includes('K') && a('e1', 'K') && a('h1', 'R'),
+      Q: castling.includes('Q') && a('e1', 'K') && a('a1', 'R'),
+      k: castling.includes('k') && a('e8', 'k') && a('h8', 'r'),
+      q: castling.includes('q') && a('e8', 'k') && a('a8', 'r'),
     },
-    ep: ep && ep !== '-' ? squareFromName(ep) : -1,
+    ep: ep !== '-' ? squareFromName(ep) : -1,
     halfmove: Number(halfmove ?? 0) || 0,
     fullmove: Number(fullmove ?? 1) || 1,
   };
@@ -472,12 +509,19 @@ export function findMove(
 /**
  * Le matériel restant permet-il encore de mater ?
  *
- * Cas de nulle immédiate reconnus par la FIDE : roi contre roi, roi et fou
- * contre roi, roi et cavalier contre roi, et roi et fou contre roi et fou
- * lorsque les deux fous vont sur des cases de même couleur.
+ * Position morte au sens de la FIDE : aucune suite de coups légaux ne peut
+ * mener au mat. C'est le cas de roi contre roi, de roi et une pièce mineure
+ * contre roi, et de toute position où il ne reste que des **fous, tous sur
+ * des cases de même couleur**, quel que soit leur camp — y compris plusieurs
+ * fous d'un même joueur, ce qu'on ne rencontre qu'après une sous-promotion.
+ * Deux cavaliers contre un roi nu ne sont pas une position morte : le mat
+ * existe, à condition que le défenseur l'aide.
  */
 export function insufficientMaterial(pos: Position): boolean {
-  const minor: { color: Color; square: number }[] = [];
+  let cavaliers = 0;
+  let fous = 0;
+  let couleur = -1;
+  let deuxCouleurs = false;
   for (let s = 0; s < 64; s += 1) {
     const p = pos.board[s];
     if (!p) continue;
@@ -485,29 +529,38 @@ export function insufficientMaterial(pos: Position): boolean {
     if (type === 'K') continue;
     // un pion, une tour ou une dame suffisent toujours à mater
     if (type === 'P' || type === 'R' || type === 'Q') return false;
-    minor.push({ color: colorOf(p) as Color, square: s });
+    if (type === 'N') {
+      cavaliers += 1;
+    } else {
+      fous += 1;
+      const c = (fileOf(s) + rankOf(s)) % 2;
+      if (couleur >= 0 && c !== couleur) deuxCouleurs = true;
+      couleur = c;
+    }
   }
-  if (minor.length <= 1) return true;
-  if (minor.length === 2) {
-    const [a, b] = minor;
-    const bothBishops =
-      typeOf(pos.board[a.square] as Piece) === 'B' && typeOf(pos.board[b.square] as Piece) === 'B';
-    const sameSquareColor =
-      (fileOf(a.square) + rankOf(a.square)) % 2 === (fileOf(b.square) + rankOf(b.square)) % 2;
-    return bothBishops && a.color !== b.color && sameSquareColor;
-  }
-  return false;
+  if (cavaliers + fous <= 1) return true;
+  return cavaliers === 0 && !deuxCouleurs;
 }
 
 /**
  * Signature d'une position pour la règle de répétition.
  *
  * Deux positions se répètent si les pièces, le trait, les droits de roque et
- * la prise en passant possible coïncident — les pendules n'entrent pas en
- * compte, d'où la troncature des deux derniers champs du FEN.
+ * les coups possibles coïncident — les pendules n'entrent pas en compte, d'où
+ * la troncature des deux derniers champs du FEN.
+ *
+ * La case en passant, elle, n'entre en compte que si une prise en passant est
+ * **réellement possible**. `makeMove` la renseigne après tout double pas,
+ * même quand aucun pion adverse ne peut prendre ; la garder telle quelle
+ * faisait passer deux positions identiques pour différentes, et une triple
+ * répétition n'était détectée qu'un coup trop tard — ou jamais, si l'on
+ * déviait entre-temps. `chess.js` applique la même règle.
  */
-export const positionKey = (pos: Position): string =>
-  toFEN(pos).split(' ').slice(0, 4).join(' ');
+export const positionKey = (pos: Position): string => {
+  const [placement, trait, roques, ep] = toFEN(pos).split(' ');
+  const epUtile = pos.ep >= 0 && legalMoves(pos).some((m) => m.enPassant);
+  return `${placement} ${trait} ${roques} ${epUtile ? ep : '-'}`;
+};
 
 /**
  * Statut de la position.
@@ -561,9 +614,13 @@ export function toSAN(before: Position, move: Move, after?: Position): string {
   );
   let disambiguation = '';
   if (rivals.length > 0) {
-    disambiguation = rivals.every((m) => fileOf(m.from) !== fileOf(move.from))
-      ? FILES[fileOf(move.from)]
-      : String(rankOf(move.from) + 1);
+    // colonne si elle suffit, sinon rangée, sinon la case entière : trois
+    // dames en a1, a5 et e1 vers e5 exigent « Da1xe5 », ni « Dae5 » ni « D1e5 »
+    const memeColonne = rivals.some((m) => fileOf(m.from) === fileOf(move.from));
+    const memeRangee = rivals.some((m) => rankOf(m.from) === rankOf(move.from));
+    if (!memeColonne) disambiguation = FILES[fileOf(move.from)];
+    else if (!memeRangee) disambiguation = String(rankOf(move.from) + 1);
+    else disambiguation = squareName(move.from);
   }
   return `${FRENCH[type]}${disambiguation}${captures ? 'x' : ''}${squareName(move.to)}${suffix}`;
 }
