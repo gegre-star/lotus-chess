@@ -10,15 +10,14 @@ import { finishGame } from '../src/chess/progress';
 import { chooseMove, hangingSquare, updateElo } from '../src/chess/ai';
 import { createEngine } from '../src/analysis';
 import { revoirPartie, type CoupRevu } from '../src/analysis/review';
-import { expliquerRefus, perteEnPions, type Verdict } from '../src/chess/coaching';
+import { perteEnPions, type Verdict } from '../src/chess/coaching';
+import { issueDePartie, toucherCase } from '../src/chess/interaction';
+import { coupDeLivre, nommerOuverture } from '../src/chess/ouvertures';
 import {
   START_FEN,
-  castleByRook,
   colorOf,
   findKing,
   findMove,
-  inCheck,
-  gameStatus,
   makeMove,
   legalMoves,
   movesFrom,
@@ -122,34 +121,26 @@ export default function PlayScreen() {
 
   const conclude = useCallback(
     (g: GameState): GameState => {
-      const status = gameStatus(g.position);
-      if (status !== 'mate' && status !== 'stalemate') return g;
+      const issue = issueDePartie(g.position, g.history, g.side, g.bot.nom);
+      if (!issue) return g;
 
       const badges: Record<number, SquareBadge> = {};
-      let result: 'win' | 'loss' | 'draw';
-      let message: string;
+      if (issue.statut === 'mate') badges[findKing(g.position, g.position.turn)] = 'bad';
 
-      if (status === 'mate') {
-        badges[findKing(g.position, g.position.turn)] = 'bad';
-        const winner: Color = g.position.turn === 'w' ? 'b' : 'w';
-        if (winner === g.side) {
-          result = 'win';
-          message = 'Échec et mat — tu as gagné !';
-        } else {
-          result = 'loss';
-          message = `Échec et mat pour ${g.bot.nom}. Rejoue, tu vas y arriver.`;
-        }
-      } else {
-        result = 'draw';
-        message = 'Pat : aucun coup légal, partie nulle.';
-      }
-
-      const score = result === 'win' ? 1 : result === 'draw' ? 0.5 : 0;
+      const score = issue.resultat === 'win' ? 1 : issue.resultat === 'draw' ? 0.5 : 0;
       const newElo = updateElo(progress.elo, g.bot.elo, score);
-      update((p) => finishGame(p, g.bot.nom, result, newElo));
-      setEndDialog(`${message}\nClassement : ${newElo} (${newElo >= progress.elo ? '+' : ''}${newElo - progress.elo})`);
+      update((p) => finishGame(p, g.bot.nom, issue.resultat, newElo));
+      setEndDialog(
+        `${issue.message}\nClassement : ${newElo} (${newElo >= progress.elo ? '+' : ''}${newElo - progress.elo})`,
+      );
 
-      return { ...g, over: true, badges, message, tone: result === 'win' ? 'ok' : 'bad' };
+      return {
+        ...g,
+        over: true,
+        badges,
+        message: issue.message,
+        tone: issue.resultat === 'win' ? 'ok' : 'bad',
+      };
     },
     [progress.elo, update],
   );
@@ -211,10 +202,16 @@ export default function PlayScreen() {
     const jouer = async () => {
       let move: Move | null = null;
 
+      // Le répertoire d'ouvertures passe avant le calcul : sans lui le moteur,
+      // déterministe, rejouait la même ouverture à chaque partie. Les faibles
+      // en sortent plus souvent que les forts — c'est aussi ce qui les
+      // distingue autour de l'échiquier.
+      if (Math.random() > bot.gaffe) move = coupDeLivre(parseFEN(fenAvant));
+
       // Stockfish bridé à l'Elo choisi. Sur natif `createEngine` rend le
       // minimax, qui ignore ce réglage : on le laisse alors jouer selon
       // `depth` et `gaffe`, comme les personnages.
-      if (bot.stockfish) {
+      if (!move && bot.stockfish) {
         if (!engine.current) engine.current = createEngine();
         if (engine.current.name === 'stockfish') {
           try {
@@ -291,6 +288,21 @@ export default function PlayScreen() {
     return out;
   }, [game]);
 
+  /**
+   * Nom de l'ouverture en cours, quand elle est reconnaissable.
+   *
+   * L'afficher n'est pas décoratif : c'est ce qui transforme « l'adversaire a
+   * joué autre chose » en « il a choisi la défense française », donc en
+   * quelque chose qu'on peut réviser.
+   */
+  const ouverture = useMemo(
+    () =>
+      game
+        ? nommerOuverture(game.moves.map((m) => `${squareName(m.from)}${squareName(m.to)}`))
+        : null,
+    [game],
+  );
+
   /** Efface la trace : elle ne décrit plus la position dès qu'un coup est joué. */
   const effacerTrace = useCallback(() => {
     if (traceTimer.current) clearTimeout(traceTimer.current);
@@ -313,55 +325,16 @@ export default function PlayScreen() {
     (square: number) => {
       setGame((g) => {
         if (!g || g.over || g.position.turn !== g.side) return g;
-        if (g.position.turn !== g.side) return g;
 
-        if (g.selected !== null) {
-          const candidates = movesFrom(g.position, g.selected).filter((m) => m.to === square);
-          if (candidates.length > 0) {
-            const move = candidates.find((m) => m.promotion === 'Q') ?? candidates[0];
-            effacerTrace();
-            return { ...applyMove(g, move), aideEchec: false };
-          }
-          // toucher sa propre tour est l'autre geste courant pour roquer
-          const roque = castleByRook(g.position, g.selected, square);
-          if (roque) {
-            effacerTrace();
-            return { ...applyMove(g, roque), aideEchec: false };
-          }
+        const decision = toucherCase(g.position, g.selected, square);
+        if (decision.type === 'coup') {
+          effacerTrace();
+          return { ...applyMove(g, decision.move), aideEchec: false };
         }
-
-        const piece = g.position.board[square];
-        const sien = colorOf(piece) === g.position.turn;
-
-        // Un refus muet est la première cause de « c'est un bug » : l'élève
-        // voit une capture évidente, elle est refusée, et rien ne l'éclaire.
-        // On explique d'abord le coup précis qu'il vient de tenter — « cette
-        // pièce est défendue », « elle est clouée » — car c'est cela qu'il
-        // cherche à comprendre, avant l'état général de la position.
-        if (g.selected !== null) {
-          const pourquoi = expliquerRefus(g.position, g.selected, square);
-          if (pourquoi) {
-            return { ...g, selected: null, aideEchec: true, message: pourquoi };
-          }
+        if (decision.type === 'refus') {
+          return { ...g, selected: null, aideEchec: true, message: decision.message, tone: 'bad' };
         }
-
-        // Sur un échec, annoncer la menace ne suffit pas : quand une seule
-        // pièce peut parer, un débutant la cherche, ne la trouve pas, et
-        // conclut qu'il est mat. On montre donc les pièces capables de jouer,
-        // après un premier essai manqué comme les indices des exercices.
-        if (g.selected !== null && !sien && inCheck(g.position, g.position.turn)) {
-          const parades = new Set(legalMoves(g.position).map((m) => m.from));
-          return {
-            ...g,
-            selected: null,
-            aideEchec: true,
-            message:
-              parades.size === 1
-                ? 'Ton roi est en échec, et une seule pièce peut te sauver — elle est marquée.'
-                : `Ton roi est en échec. ${parades.size} pièces peuvent parer : elles sont marquées.`,
-          };
-        }
-        return { ...g, selected: sien ? square : null };
+        return { ...g, selected: decision.square };
       });
     },
     [applyMove, effacerTrace],
@@ -581,7 +554,7 @@ export default function PlayScreen() {
           />
         </View>
         <View style={S.sectionRow}>
-          <Text style={S.sectionTitle}>Coups</Text>
+          <Text style={S.sectionTitle}>{ouverture ?? 'Coups'}</Text>
           <Text style={S.sectionMeta}>{game.bot.nom} · {game.bot.elo}</Text>
         </View>
         <View style={[S.pad, styles.moveList]}>

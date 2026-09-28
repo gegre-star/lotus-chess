@@ -16,3 +16,4 @@ thème, c'est une mesure — et un rapport sans test correspondant est un vœu.
 | Pièces en prise | [pieces-en-prise.md](pieces-en-prise.md) |
 | Parties historiques | [parties-historiques.md](parties-historiques.md) |
 | Règles du jeu | [regles-du-jeu.md](regles-du-jeu.md) |
+| Ouvertures | [ouvertures.md](ouvertures.md) |

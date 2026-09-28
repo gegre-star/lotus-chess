@@ -34,6 +34,12 @@ lieu de laisser espérer un mat.
 | Mats et pats de référence, sans faux positif | › « mats et pats de référence » |
 | Le FEN conserve les pendules à l'aller-retour | › « conserve les pendules » |
 | `perft` reste juste sur les trois positions de référence | `engine.test.ts` (inchangé) |
+| Les coups légaux coïncident avec ceux de `chess.js`, de l'ouverture à la finale | `oracle.test.ts` › « parties aléatoires » |
+| Idem sur des finales construites à deux à six pièces | › « finales construites » |
+| Un roi en échec peut prendre un pion voisin non défendu, des deux couleurs | › « roi en échec et pion voisin » (6 cas) |
+| Le geste « toucher le roi, toucher le pion » joue bien la prise | `interaction.test.ts` › 616 prises vérifiées |
+| Les nulles de règle terminent la partie, pat et matériel compris | `interaction.test.ts` › « fin de partie » (7 tests) |
+| La triple répétition n'est vue que si l'historique est transmis | › « la même position trois fois » |
 
 **Effets de bord traités** : `toSAN` et l'échiquier lisaient `gameStatus` pour
 détecter l'échec. Un statut de nulle aurait masqué le « + » d'un coup qui
@@ -45,12 +51,32 @@ légaux à chaque rendu.
 `stalemate`, et serait tombé dans l'évaluation matérielle sur les trois
 nouveaux statuts.
 
-## Sur Stockfish et chess.js
+## Ce que `perft` ne disait pas
 
-La demande mentionnait `chess.js` pour la validation des coups. Ce moteur-ci
-est conservé : il est vérifié par `perft`, il n'a aucune dépendance, et le
-remplacer signifierait réécrire le contenu qui s'appuie sur son API sans rien
-gagner de mesurable.
+Un signalement — « le roi blanc en échec ne peut pas prendre le pion voisin »
+— a montré la limite de `perft` : il compte les coups, il ne les nomme pas.
+Un générateur qui oublierait une prise et inventerait un autre coup dans la
+même position passerait tous les totaux.
+
+`chess.js` sert donc désormais d'arbitre, **dans les tests uniquement** : on
+compare les listes de coups, position par position. Au dernier passage,
+115 362 positions ont été comparées sans un seul écart, dont 5 723 finales et
+594 positions où un roi en échec capture un pion. Le moteur de l'application
+reste sans dépendance ; `chess.js` n'est pas embarqué dans le bundle.
+
+Les règles étaient donc justes. Ce qui ne l'était pas, c'est le **silence** :
+un coup refusé sans raison vérifiable se vit comme un bug, et l'élève a raison
+de ne pas croire une application qui ne se justifie pas. `expliquerRefus`
+nomme maintenant la pièce responsable — « Prise impossible en e2 : cette pièce
+est défendue par le pion d3 » — et les trois écrans qui refusaient en silence
+(jeu, exercices, parties de maîtres) passent par la même décision,
+`toucherCase`, testable sans jouer une partie entière.
+
+## Sur Stockfish
+
+Ce moteur-ci est conservé pour l'application : il est vérifié par `perft` et
+par `chess.js`, il n'a aucune dépendance, et le remplacer signifierait
+réécrire le contenu qui s'appuie sur son API sans rien gagner de mesurable.
 
 Stockfish, lui, est intégré — mais seulement là où il peut tourner. Hermes,
 le moteur JavaScript de React Native, n'exécute ni WebAssembly ni Web Worker :

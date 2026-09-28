@@ -198,6 +198,61 @@ export function isAttacked(pos: Position, target: number, by: Color): boolean {
   return false;
 }
 
+/**
+ * Cases d'où le camp `by` attaque `target`.
+ *
+ * `isAttacked` répond « oui ou non » ; ici on veut *qui*, pour pouvoir dire à
+ * l'élève « ce pion est défendu par le pion d3 » plutôt que de refuser son
+ * coup sans rien expliquer. Un refus qu'on ne peut pas vérifier sur
+ * l'échiquier se vit comme un bug de l'application.
+ */
+export function attackers(pos: Position, target: number, by: Color): number[] {
+  const out: number[] = [];
+  const tf = fileOf(target);
+  const tr = rankOf(target);
+
+  const pawnRank = by === 'w' ? tr - 1 : tr + 1;
+  for (const df of [-1, 1]) {
+    const f = tf + df;
+    if (!onBoard(f, pawnRank)) continue;
+    const s = sq(f, pawnRank);
+    const p = pos.board[s];
+    if (p && colorOf(p) === by && typeOf(p) === 'P') out.push(s);
+  }
+  for (const [offsets, type] of [
+    [KNIGHT_OFFSETS, 'N'],
+    [KING_OFFSETS, 'K'],
+  ] as [readonly [number, number][], PieceType][]) {
+    for (const [df, dr] of offsets) {
+      const f = tf + df;
+      const r = tr + dr;
+      if (!onBoard(f, r)) continue;
+      const s = sq(f, r);
+      const p = pos.board[s];
+      if (p && colorOf(p) === by && typeOf(p) === type) out.push(s);
+    }
+  }
+  const slide = (dirs: readonly [number, number][], types: PieceType[]) => {
+    for (const [df, dr] of dirs) {
+      let f = tf + df;
+      let r = tr + dr;
+      while (onBoard(f, r)) {
+        const s = sq(f, r);
+        const p = pos.board[s];
+        if (p) {
+          if (colorOf(p) === by && types.includes(typeOf(p))) out.push(s);
+          break;
+        }
+        f += df;
+        r += dr;
+      }
+    }
+  };
+  slide(BISHOP_DIRS, ['B', 'Q']);
+  slide(ROOK_DIRS, ['R', 'Q']);
+  return out.sort((a, b) => a - b);
+}
+
 export function inCheck(pos: Position, color: Color): boolean {
   const king = findKing(pos, color);
   if (king < 0) return false;

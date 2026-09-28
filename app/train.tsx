@@ -6,6 +6,7 @@ import { Action, ActionBar, ListItem, ProgressBar } from '../src/components/UI';
 import { C, S } from '../src/components/theme';
 import { useProgress } from '../src/chess/ProgressContext';
 import { completeExercise } from '../src/chess/progress';
+import { toucherCase } from '../src/chess/interaction';
 import { EXERCISES, THEMES, exercisesByTheme, type Exercise } from '../src/chess/exercises';
 import {
   etatInitial,
@@ -49,6 +50,8 @@ export default function TrainScreen() {
   const [etat, setEtat] = useState<EtatExercice>(etatInitial);
   const [position, setPosition] = useState<Position | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  /** Pourquoi le dernier coup tenté a été refusé — jamais de refus muet. */
+  const [refus, setRefus] = useState<string | null>(null);
   const credite = useRef<Set<string>>(new Set());
 
   const boardSize = Math.min(width - 8, 460);
@@ -58,6 +61,7 @@ export default function TrainScreen() {
     setEtat(etatInitial());
     setPosition(parseFEN(ex.fen));
     setSelected(null);
+    setRefus(null);
   }, []);
 
   const rejouer = useCallback(() => {
@@ -65,6 +69,7 @@ export default function TrainScreen() {
     setEtat(etatInitial());
     setPosition(parseFEN(exercise.fen));
     setSelected(null);
+    setRefus(null);
   }, [exercise]);
 
   const proposer = useCallback(
@@ -82,6 +87,7 @@ export default function TrainScreen() {
       const suivant = reduire(exercise, etat, { type: 'proposer', uci, feedback });
       setEtat(suivant);
       setSelected(null);
+      setRefus(null);
       if (suivant.resolu && !credite.current.has(exercise.id)) {
         credite.current.add(exercise.id);
         update((p) => completeExercise(p, exercise.id, pointsGagnes(suivant)));
@@ -93,15 +99,20 @@ export default function TrainScreen() {
   const onPressSquare = useCallback(
     (square: number) => {
       if (!position || !exercise || etat.resolu) return;
-      if (selected !== null) {
-        const candidat = movesFrom(position, selected).find((m) => m.to === square);
-        if (candidat) {
-          proposer(candidat);
-          return;
-        }
+      // même décision que dans l'écran de jeu : roque au toucher de la tour,
+      // promotion en dame, et surtout une raison quand le coup est refusé
+      const decision = toucherCase(position, selected, square);
+      if (decision.type === 'coup') {
+        proposer(decision.move);
+        return;
       }
-      const piece = position.board[square];
-      setSelected(colorOf(piece) === position.turn ? square : null);
+      if (decision.type === 'refus') {
+        setSelected(null);
+        setRefus(decision.message);
+        return;
+      }
+      setRefus(null);
+      setSelected(decision.square);
     },
     [position, exercise, etat.resolu, selected, proposer],
   );
@@ -171,7 +182,9 @@ export default function TrainScreen() {
   const indice = indiceCourant(exercise, etat);
   const message = etat.resolu
     ? `${etat.feedback?.titre ?? 'Bravo !'} ${exercise.explication}`
-    : etat.horsSujet
+    : refus
+      ? refus
+      : etat.horsSujet
       ? `Bon coup — mais ce n’est pas la question ici. ${exercise.consigne}`
       : indice
         ? indice.texte
@@ -180,7 +193,9 @@ export default function TrainScreen() {
           : exercise.consigne;
   const ton: BubbleTone = etat.resolu
     ? 'ok'
-    : etat.horsSujet || indice
+    : refus
+      ? 'bad'
+      : etat.horsSujet || indice
       ? 'neutral'
       : etat.feedback
         ? TON[etat.feedback.verdict]
