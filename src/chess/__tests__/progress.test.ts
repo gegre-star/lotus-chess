@@ -7,6 +7,8 @@ import { LESSONS, PUZZLES } from '../content';
 import {
   addXP,
   completeLesson,
+  completerFinale,
+  POINTS_FINALE,
   earnedTrophies,
   emptyProgress,
   failPuzzle,
@@ -333,5 +335,27 @@ describe('série de jours et objectifs du jour', () => {
     });
     expect(n.serieJours).toEqual({ dernier: null, courante: 0, meilleure: 0 });
     expect(n.objectifs).toEqual({ jour: null, lecons: 0, problemes: 0, parties: 3, bonus: false });
+  });
+});
+
+describe('finales', () => {
+  test('une finale rapporte ses points une seule fois', () => {
+    const a = completerFinale(emptyProgress(), 'mat-dame', '2026-09-28').progress;
+    expect(a.finales['mat-dame']).toBe(true);
+    expect(a.xp).toBe(POINTS_FINALE);
+    const b = completerFinale(a, 'mat-dame', '2026-09-28').progress;
+    expect(b.xp).toBe(POINTS_FINALE);
+  });
+
+  test('une finale compte dans la série du jour', () => {
+    const a = completerFinale(emptyProgress(), 'mat-tour', '2026-09-28').progress;
+    expect(a.serieJours.courante).toBe(1);
+  });
+
+  test('normalize garde les finales valides et écarte le reste', () => {
+    const n = normalize({ finales: { 'mat-dame': true, 'x': 'oui' } });
+    expect(n.finales['mat-dame']).toBe(true);
+    expect(n.finales.x).toBeFalsy();
+    expect(normalize({ finales: 12 }).finales).toEqual({});
   });
 });

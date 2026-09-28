@@ -8,6 +8,7 @@ import { useProgress } from '../src/chess/ProgressContext';
 import { router } from 'expo-router';
 import { GAMES, LESSONS, SECTIONS, type Lesson } from '../src/chess/content';
 import { addXP, completeLesson } from '../src/chess/progress';
+import { FINALES } from '../src/chess/finales';
 import {
   colorOf,
   findMove,
@@ -54,6 +55,8 @@ export default function LearnScreen() {
    */
   const credite = useRef<Set<string>>(new Set());
 
+  // sur mobile natif, la page ne doit pas défiler pendant qu'on glisse une pièce
+  const [glisse, setGlisse] = useState(false);
   const boardSize = Math.min(width - 8, 460);
 
   const openLesson = useCallback((l: Lesson) => {
@@ -181,6 +184,20 @@ export default function LearnScreen() {
           </Text>
         </View>
         <View style={S.sectionRow}>
+          <Text style={S.sectionTitle}>Pratiquer</Text>
+          <Text style={S.sectionMeta}>Contre l’ordinateur</Text>
+        </View>
+        <View style={[S.pad, { gap: 8 }]}>
+          <ListItem
+            testID="ouvrir-finales"
+            title="Pratique des finales"
+            subtitle="Mater, promouvoir, tenir la nulle — jusqu’au bout"
+            done={FINALES.every((f) => progress.finales[f.id])}
+            onPress={() => router.push('/finales')}
+          />
+        </View>
+
+        <View style={S.sectionRow}>
           <Text style={S.sectionTitle}>Observer</Text>
           <Text style={S.sectionMeta}>Les parties des maîtres</Text>
         </View>
@@ -220,10 +237,11 @@ export default function LearnScreen() {
   const isLast = stepIndex === lesson.steps.length - 1;
   return (
     <View style={S.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+      <ScrollView scrollEnabled={!glisse} contentContainerStyle={{ paddingBottom: 8 }}>
         <CoachBubble coach={lesson.coach} text={state.message} tone={state.tone} />
         <View style={styles.boardWrap}>
           <ChessBoard
+            onGlisser={setGlisse}
             position={state.position}
             size={boardSize}
             theme={progress.settings.board}

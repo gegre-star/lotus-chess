@@ -56,6 +56,8 @@ export interface Progress {
   /** Exercices pratiques réussis, par identifiant. */
   exercises: Record<string, boolean>;
   puzzles: Record<string, boolean>;
+  /** Finales jouées jusqu'au bout avec succès, par identifiant. */
+  finales: Record<string, boolean>;
   trophies: Record<string, boolean>;
   seenGames: Record<string, boolean>;
   history: GameRecord[];
@@ -77,6 +79,7 @@ export const emptyProgress = (): Progress => ({
   lessons: {},
   exercises: {},
   puzzles: {},
+  finales: {},
   trophies: {},
   seenGames: {},
   history: [],
@@ -248,6 +251,20 @@ export function solvePuzzle(
   return fusionner(fait, enregistrerActivite(fait.progress, 'probleme', jour));
 }
 
+/** Points d'une finale réussie, versés une seule fois. */
+export const POINTS_FINALE = 30;
+
+/** Enregistre une finale menée à bien. */
+export function completerFinale(p: Progress, id: string, jour?: string): Awarded {
+  const premiere = !p.finales[id];
+  const fait = withTrophies({
+    ...p,
+    xp: p.xp + (premiere ? POINTS_FINALE : 0),
+    finales: { ...p.finales, [id]: true },
+  });
+  return fusionner(fait, enregistrerActivite(fait.progress, 'probleme', jour));
+}
+
 /** Remet la série à zéro après une erreur sur un problème. */
 export const failPuzzle = (p: Progress): Progress => ({ ...p, streak: 0 });
 
@@ -351,6 +368,7 @@ export function normalize(raw: unknown): Progress {
     // absent des sauvegardes antérieures aux exercices
     exercises: drapeaux(d.exercises),
     puzzles: drapeaux(d.puzzles),
+    finales: drapeaux(d.finales),
     trophies: drapeaux(d.trophies),
     seenGames: drapeaux(d.seenGames),
     history: historique

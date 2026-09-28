@@ -71,12 +71,21 @@ export interface Partie {
 let compteur = 0;
 const nouvelId = (): string => `${Date.now().toString(36)}-${(compteur += 1)}`;
 
-export function nouvellePartie(bot: Bot, side: Color, pendule: Pendule | null = null): Partie {
+/**
+ * Une partie neuve. `depart` permet de la commencer ailleurs qu'au début —
+ * une finale, une position d'entraînement.
+ */
+export function nouvellePartie(
+  bot: Bot,
+  side: Color,
+  pendule: Pendule | null = null,
+  depart?: Position,
+): Partie {
   return {
     id: nouvelId(),
     bot,
     side,
-    position: parseFEN(START_FEN),
+    position: depart ?? parseFEN(START_FEN),
     history: [],
     moves: [],
     sans: [],

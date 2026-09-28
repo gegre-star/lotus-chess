@@ -65,6 +65,8 @@ export default function TrainScreen() {
     });
   }, [progress.exercises]);
 
+  // sur mobile natif, la page ne doit pas défiler pendant qu'on glisse une pièce
+  const [glisse, setGlisse] = useState(false);
   const boardSize = Math.min(width - 8, 460);
 
   const ouvrir = useCallback((ex: Exercise) => {
@@ -218,10 +220,11 @@ export default function TrainScreen() {
 
   return (
     <View style={S.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+      <ScrollView scrollEnabled={!glisse} contentContainerStyle={{ paddingBottom: 8 }}>
         <CoachBubble coach="nina" text={message} tone={ton} />
         <View style={styles.boardWrap}>
           <ChessBoard
+            onGlisser={setGlisse}
             position={position}
             size={boardSize}
             theme={progress.settings.board}

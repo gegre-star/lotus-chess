@@ -139,6 +139,8 @@ export default function PuzzlesScreen() {
     traceTimer.current = setTimeout(() => setTrace(null), TRACE_MS);
   }, []);
 
+  // sur mobile natif, la page ne doit pas défiler pendant qu'on glisse une pièce
+  const [glisse, setGlisse] = useState(false);
   const boardSize = Math.min(width - 8, 460);
   const solvedCount = Object.keys(progress.puzzles).length;
 
@@ -391,7 +393,7 @@ export default function PuzzlesScreen() {
     const restant = tempsRestant(sprint, maintenant);
     return (
       <View style={S.screen}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+        <ScrollView scrollEnabled={!glisse} contentContainerStyle={{ paddingBottom: 8 }}>
           <CoachBubble coach="nina" text={sprintMessage} tone={sprintBad !== null ? 'bad' : 'neutral'} />
           <View style={[S.pad, styles.hud, { justifyContent: 'space-between', paddingBottom: 6 }]}>
             <Text testID="sprint-score" style={S.statValue}>{sprint.score}</Text>
@@ -404,6 +406,7 @@ export default function PuzzlesScreen() {
           </View>
           <View style={styles.boardWrap}>
             <ChessBoard
+              onGlisser={setGlisse}
               position={pos}
               size={boardSize}
               theme={progress.settings.board}
@@ -488,10 +491,11 @@ export default function PuzzlesScreen() {
   // ---- problème en cours ----
   return (
     <View style={S.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+      <ScrollView scrollEnabled={!glisse} contentContainerStyle={{ paddingBottom: 8 }}>
         <CoachBubble coach="nina" text={session.message} tone={session.tone} />
         <View style={styles.boardWrap}>
           <ChessBoard
+            onGlisser={setGlisse}
             position={session.position}
             size={boardSize}
             theme={progress.settings.board}

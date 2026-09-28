@@ -145,6 +145,8 @@ export default function PlayScreen() {
     return { analyse: analyse_.current, cerveau: cerveau.current };
   }, []);
 
+  // sur mobile natif, la page ne doit pas défiler pendant qu'on glisse une pièce
+  const [glisse, setGlisse] = useState(false);
   const boardSize = Math.min(width - 8, 460);
 
   useEffect(
@@ -799,7 +801,7 @@ export default function PlayScreen() {
 
   return (
     <View style={S.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+      <ScrollView scrollEnabled={!glisse} contentContainerStyle={{ paddingBottom: 8 }}>
         <CoachBubble
           coach="robi"
           text={botPense ? `${bot.nom} réfléchit…` : (notice ?? message)}
@@ -809,6 +811,7 @@ export default function PlayScreen() {
           <View style={{ width: boardSize }}>
             {bandeau(haut, 'bandeau-haut')}
             <ChessBoard
+              onGlisser={setGlisse}
               position={positionAffichee ?? partie.position}
               size={boardSize}
               theme={reglages.board}
