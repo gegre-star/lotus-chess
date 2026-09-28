@@ -46,7 +46,10 @@ export default function ChessHome() {
           <Text style={styles.heroSub}>
             {nextLesson.title} · {SECTIONS[nextLesson.sec].name}
           </Text>
-          <Button label="Continuer" onPress={() => router.push('/chess/learn')} style={{ marginTop: 10 }} />
+          {/* La route est `/learn` : `/chess/learn` n'a jamais existé, et le
+              bouton principal de l'accueil retombait sur l'écran « page
+              introuvable », donc sur l'accueil. */}
+          <Button label="Continuer" onPress={() => router.push('/learn')} style={{ marginTop: 10 }} />
         </View>
       </View>
 

@@ -22,6 +22,20 @@ import {
 } from './engine';
 import { expliquerRefus } from './coaching';
 
+/**
+ * Temps minimal avant que l'adversaire ne réponde.
+ *
+ * L'ordinateur répondait en 120 ms : sur un téléphone la pièce était déjà
+ * arrivée avant qu'on ait relevé les yeux, et on ne voyait pas ce qui avait
+ * bougé. Ce délai n'est pas de l'attente perdue, c'est ce qui rend le coup
+ * observable. Partagé par tous les écrans pour que l'application ait un seul
+ * rythme.
+ */
+export const REFLEXION_MIN_MS = 850;
+
+/** Durée d'affichage du fantôme laissé sur la case de départ. */
+export const TRACE_MS = 2200;
+
 export type Decision =
   /** Le coup est légal : on le joue. */
   | { type: 'coup'; move: Move }

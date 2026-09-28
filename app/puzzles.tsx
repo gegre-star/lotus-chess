@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { ChessBoard, type Arrow, type SquareBadge } from '../src/components/ChessBoard';
 import { CoachBubble, type BubbleTone } from '../src/components/CoachBubble';
@@ -7,9 +7,10 @@ import { C, S } from '../src/components/theme';
 import { useProgress } from '../src/chess/ProgressContext';
 import { PUZZLES, type Puzzle } from '../src/chess/content';
 import { failPuzzle, solvePuzzle } from '../src/chess/progress';
-import { chooseMove, evaluate, isGoodMove } from '../src/chess/ai';
+import { chooseMove, isGoodMove } from '../src/chess/ai';
+import { objectifAtteint } from '../src/chess/puzzleState';
+import { REFLEXION_MIN_MS, TRACE_MS, toucherCase } from '../src/chess/interaction';
 import {
-  colorOf,
   findKing,
   gameStatus,
   makeMove,
@@ -17,6 +18,7 @@ import {
   parseFEN,
   squareName,
   type Move,
+  type Piece,
   type Position,
 } from '../src/chess/engine';
 
@@ -55,26 +57,51 @@ const newSession = (puzzle: Puzzle): Session => {
   };
 };
 
-/** L'objectif du problème est-il atteint ? */
-function isSolved(session: Session): boolean {
-  const { puzzle, position, start } = session;
-  if (puzzle.mate) return gameStatus(position) === 'mate';
-  return evaluate(position) - evaluate(start) >= puzzle.gain * 100 - 60;
-}
-
 export default function PuzzlesScreen() {
   const { width } = useWindowDimensions();
   const { progress, update } = useProgress();
   const [session, setSession] = useState<Session | null>(null);
+  /** Dernier coup adverse, montré en fantôme le temps de le comprendre. */
+  const [trace, setTrace] = useState<{ from: number; to: number; piece: Piece } | null>(null);
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const traceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sans ce nettoyage, la réponse de l'adversaire arrivait après qu'on a
+  // quitté l'écran : React reprochait une mise à jour sur un composant démonté,
+  // et le minuteur survivait à la session.
+  useEffect(
+    () => () => {
+      if (replyTimer.current) clearTimeout(replyTimer.current);
+      if (traceTimer.current) clearTimeout(traceTimer.current);
+    },
+    [],
+  );
+
+  const effacerTrace = useCallback(() => {
+    if (traceTimer.current) clearTimeout(traceTimer.current);
+    setTrace(null);
+  }, []);
+
+  const montrerTrace = useCallback(
+    (t: { from: number; to: number; piece: Piece }) => {
+      setTrace(t);
+      if (traceTimer.current) clearTimeout(traceTimer.current);
+      traceTimer.current = setTimeout(() => setTrace(null), TRACE_MS);
+    },
+    [],
+  );
 
   const boardSize = Math.min(width - 8, 460);
   const solvedCount = Object.keys(progress.puzzles).length;
 
-  const open = useCallback((puzzle: Puzzle) => {
-    if (replyTimer.current) clearTimeout(replyTimer.current);
-    setSession(newSession(puzzle));
-  }, []);
+  const open = useCallback(
+    (puzzle: Puzzle) => {
+      if (replyTimer.current) clearTimeout(replyTimer.current);
+      effacerTrace();
+      setSession(newSession(puzzle));
+    },
+    [effacerTrace],
+  );
 
   const finish = useCallback(
     (s: Session, last: Move) => {
@@ -103,76 +130,94 @@ export default function PuzzlesScreen() {
     (square: number) => {
       setSession((current) => {
         if (!current || current.solved) return current;
-        const { position, selected } = current;
+        const { position } = current;
 
-        if (selected !== null) {
-          const candidates = movesFrom(position, selected).filter((m) => m.to === square);
-          if (candidates.length > 0) {
-            // par défaut on promeut en dame, le choix le plus fréquent
-            const move = candidates.find((m) => m.promotion === 'Q') ?? candidates[0];
-
-            if (!isGoodMove(position, move)) {
-              update((p) => ({ progress: failPuzzle(p), unlocked: [] }));
-              return {
-                ...current,
-                selected: null,
-                failed: true,
-                badges: { [square]: 'bad' },
-                arrows: [],
-                message: 'Ce coup laisse filer le gain. Réessaie !',
-                tone: 'bad',
-              };
-            }
-
-            const after = makeMove(position, move);
-            const played: Session = {
-              ...current,
-              position: after,
-              selected: null,
-              lastMove: move,
-              badges: { [move.to]: 'good' },
-              arrows: [],
-            };
-            if (isSolved(played)) {
-              // on laisse React finir ce rendu avant d'enregistrer la réussite
-              replyTimer.current = setTimeout(() => finish(played, move), 0);
-              return played;
-            }
-
-            // l'adversaire répond avec la meilleure défense trouvée par le moteur
-            replyTimer.current = setTimeout(() => {
-              setSession((live) => {
-                if (!live || live.solved) return live;
-                const reply = chooseMove(live.position, { depth: 3, gaffe: 0 });
-                if (!reply) return live;
-                const next: Session = {
-                  ...live,
-                  position: makeMove(live.position, reply),
-                  lastMove: reply,
-                  badges: {},
-                  message: 'Bien vu ! Continue la combinaison.',
-                  tone: 'ok',
-                };
-                if (isSolved(next)) {
-                  replyTimer.current = setTimeout(() => finish(next, reply), 0);
-                }
-                return next;
-              });
-            }, 450);
-            return played;
-          }
+        // même décision que partout ailleurs : roque au toucher de la tour,
+        // promotion en dame, et une raison quand le coup est refusé
+        const decision = toucherCase(position, current.selected, square);
+        if (decision.type === 'selection') {
+          return { ...current, selected: decision.square, badges: {} };
+        }
+        if (decision.type === 'refus') {
+          return {
+            ...current,
+            selected: null,
+            badges: {},
+            arrows: [],
+            message: decision.message,
+            tone: 'bad',
+          };
         }
 
-        const piece = position.board[square];
-        return {
+        const move = decision.move;
+        if (!isGoodMove(position, move)) {
+          update((p) => ({ progress: failPuzzle(p), unlocked: [] }));
+          return {
+            ...current,
+            selected: null,
+            failed: true,
+            badges: { [square]: 'bad' },
+            arrows: [],
+            message: 'Ce coup laisse filer le gain. Réessaie !',
+            tone: 'bad',
+          };
+        }
+
+        effacerTrace();
+        const after = makeMove(position, move);
+        const played: Session = {
           ...current,
-          selected: colorOf(piece) === position.turn ? square : null,
-          badges: {},
+          position: after,
+          selected: null,
+          lastMove: move,
+          badges: { [move.to]: 'good' },
+          arrows: [],
         };
+        if (objectifAtteint(played.puzzle, played.start, played.position)) {
+          // on laisse React finir ce rendu avant d'enregistrer la réussite
+          replyTimer.current = setTimeout(() => finish(played, move), 0);
+          return played;
+        }
+
+        // l'adversaire répond avec la meilleure défense trouvée par le moteur
+        replyTimer.current = setTimeout(() => {
+          setSession((live) => {
+            if (!live || live.solved) return live;
+            const reply = chooseMove(live.position, { depth: 3, gaffe: 0 });
+            if (!reply) return live;
+            const piece = live.position.board[reply.from];
+            const next: Session = {
+              ...live,
+              position: makeMove(live.position, reply),
+              lastMove: reply,
+              badges: {},
+              message: 'Bien vu ! Continue la combinaison.',
+              tone: 'ok',
+            };
+            // le fantôme montre d'où vient la pièce : sans lui, la défense
+            // adverse apparaît sans qu'on ait vu ce qui a bougé
+            if (piece) montrerTrace({ from: reply.from, to: reply.to, piece });
+            if (objectifAtteint(next.puzzle, next.start, next.position)) {
+              replyTimer.current = setTimeout(() => finish(next, reply), 0);
+            }
+            return next;
+          });
+        }, REFLEXION_MIN_MS);
+        return played;
       });
     },
-    [finish, update],
+    [effacerTrace, finish, montrerTrace, update],
   );
+
+  /**
+   * Flèches affichées : celles de l'indice ou de la solution, plus le trajet
+   * du dernier coup adverse tant que son fantôme est visible.
+   */
+  const flechesEchiquier = useMemo((): Arrow[] => {
+    const base = session?.arrows ?? [];
+    if (!trace) return base;
+    return [...base, [squareName(trace.from), squareName(trace.to), C.blue] as Arrow];
+  }, [session?.arrows, trace]);
 
   const showHint = useCallback(() => {
     setSession((current) => {
@@ -262,7 +307,8 @@ export default function PuzzlesScreen() {
             selected={session.selected}
             targets={session.selected !== null ? movesFrom(session.position, session.selected) : []}
             lastMove={session.lastMove}
-            arrows={session.arrows}
+            arrows={flechesEchiquier}
+            ghost={trace ? { square: trace.from, piece: trace.piece } : null}
             badges={session.badges}
             onPressSquare={onPressSquare}
           />

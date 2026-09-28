@@ -11,7 +11,12 @@ import { chooseMove, hangingSquare, updateElo } from '../src/chess/ai';
 import { createEngine } from '../src/analysis';
 import { revoirPartie, type CoupRevu } from '../src/analysis/review';
 import { perteEnPions, type Verdict } from '../src/chess/coaching';
-import { issueDePartie, toucherCase } from '../src/chess/interaction';
+import {
+  REFLEXION_MIN_MS,
+  TRACE_MS,
+  issueDePartie,
+  toucherCase,
+} from '../src/chess/interaction';
 import { coupDeLivre, nommerOuverture } from '../src/chess/ouvertures';
 import {
   START_FEN,
@@ -49,19 +54,6 @@ interface GameState {
   tone: BubbleTone;
   badges: Record<number, SquareBadge>;
 }
-
-/**
- * Temps minimal entre le coup de l'élève et celui de l'adversaire.
- *
- * Le bot répondait en 120 ms : sur un téléphone la pièce adverse était déjà
- * arrivée avant qu'on ait relevé les yeux, et on ne voyait pas ce qui avait
- * bougé. Ce délai n'est pas de l'attente perdue, c'est ce qui rend le coup
- * observable.
- */
-const REFLEXION_MIN_MS = 850;
-
-/** Durée d'affichage du fantôme laissé par le coup adverse. */
-const TRACE_MS = 2200;
 
 const VERDICT_COULEUR: Record<Verdict, string> = {
   brillant: C.gold,
