@@ -207,10 +207,12 @@ describe('explication d’un coup refusé', () => {
     expect(expliquerRefus(echecFouDefendu, carre('e1'), carre('a8'))).toBeNull();
   });
 
-  it('dit qu’une case reste en échec quand le roi y fuirait', () => {
+  it('nomme la pièce qui interdit la case de fuite', () => {
     // roi en échec par une tour sur la colonne e ; e2 reste sur la colonne
     const pos = parseFEN('4r2k/8/8/8/8/8/8/4K3 w - - 0 1');
-    expect(expliquerRefus(pos, carre('e1'), carre('e2'))).toContain('encore en échec');
+    expect(expliquerRefus(pos, carre('e1'), carre('e2'))).toBe(
+      'Ton roi ne peut pas aller en e2 : la tour e8 contrôle cette case.',
+    );
   });
 
   it('dit qu’un coup ne pare pas l’échec', () => {

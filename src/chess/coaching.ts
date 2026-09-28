@@ -14,7 +14,9 @@
  * étant le meilleur coup — c'est précisément ce qu'on appelle brillant.
  */
 import {
+  attackers,
   colorOf,
+  findKing,
   inCheck,
   isAttacked,
   legalMoves,
@@ -236,12 +238,38 @@ export function piecesEnPrise(pos: Position, camp: Color): string[] {
   return cases;
 }
 
+/** Nom français d'une pièce, avec son article : « le pion », « la tour ». */
+const NOM_PIECE: Record<string, string> = {
+  K: 'le roi',
+  Q: 'la dame',
+  R: 'la tour',
+  B: 'le fou',
+  N: 'le cavalier',
+  P: 'le pion',
+};
+
+/** « la tour a1 » — la pièce occupant cette case, nommée et située. */
+export function nommerPiece(pos: Position, square: number): string {
+  const p = pos.board[square];
+  if (!p) return squareName(square);
+  return `${NOM_PIECE[p.toUpperCase()]} ${squareName(square)}`;
+}
+
+/** « le pion d3 », « le pion d3 et la tour e1 », « le pion d3, … et … ». */
+function enumerer(pos: Position, cases: number[]): string {
+  const noms = cases.map((s) => nommerPiece(pos, s));
+  if (noms.length <= 1) return noms[0] ?? '';
+  return `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`;
+}
+
 /**
  * Pourquoi ce coup est-il refusé ?
  *
  * Un refus muet est la première cause de « c'est un bug » : l'élève voit une
- * capture évidente, l'application ne la joue pas, et rien ne l'éclaire. Les
- * trois raisons ci-dessous couvrent la quasi-totalité des cas réels.
+ * capture évidente, l'application ne la joue pas, et rien ne l'éclaire. Pire
+ * qu'un refus muet, un refus invérifiable : « cette pièce est défendue » sans
+ * dire par quoi ne se contrôle pas sur l'échiquier, et l'élève a raison de ne
+ * pas le croire. On nomme donc toujours la pièce responsable.
  *
  * Rend `null` quand il n'y a rien à dire — la pièce ne se déplace tout
  * simplement pas ainsi, ou le coup est légal.
@@ -250,21 +278,44 @@ export function expliquerRefus(pos: Position, from: number, to: number): string 
   const pseudo = pseudoMovesFrom(pos, from).find((m) => m.to === to);
   if (!pseudo) return null;
   const camp = pos.turn;
-  if (!inCheck(makeMove(pos, pseudo), camp)) return null;
+  const adverse: Color = camp === 'w' ? 'b' : 'w';
+  const apres = makeMove(pos, pseudo);
+  if (!inCheck(apres, camp)) return null;
 
   const piece = pos.board[from];
   if (!piece) return null;
-  const estRoi = typeOf(piece) === 'K';
-  const capture = Boolean(pos.board[to]) || Boolean(pseudo.enPassant);
+  const arrivee = squareName(to);
 
-  if (estRoi && capture) {
-    return `En ${squareName(to)} la pièce est défendue : ton roi y resterait en échec.`;
+  if (typeOf(piece) === 'K') {
+    // Ce sont les pièces qui tiennent la case d'arrivée *après* le coup qui
+    // l'interdisent : une tour peut n'y arriver qu'une fois le roi parti de
+    // sa case actuelle, et le pion pris peut l'être justement parce qu'un
+    // autre pion le défend.
+    const gardiens = attackers(apres, to, adverse);
+    const qui = enumerer(apres, gardiens);
+    if (pos.board[to] || pseudo.enPassant) {
+      return gardiens.length > 0
+        ? `Prise impossible en ${arrivee} : cette pièce est défendue par ${qui}.`
+        : `Ton roi ne peut pas aller en ${arrivee}.`;
+    }
+    return gardiens.length > 0
+      ? `Ton roi ne peut pas aller en ${arrivee} : ${qui} contrôle cette case.`
+      : `Ton roi serait encore en échec en ${arrivee}.`;
   }
-  if (estRoi) {
-    return `En ${squareName(to)} ton roi serait encore en échec.`;
-  }
+
   if (inCheck(pos, camp)) {
-    return 'Ce coup ne pare pas l’échec.';
+    const auteurs = attackers(pos, findKing(pos, camp), adverse);
+    const qui = enumerer(pos, auteurs);
+    return qui
+      ? `Ce coup ne pare pas l’échec de ${qui}.`
+      : 'Ce coup ne pare pas l’échec.';
   }
-  return 'Cette pièce est clouée : la bouger découvrirait ton roi.';
+
+  // Le roi est en échec seulement *après* le coup : la pièce était clouée, et
+  // c'est l'attaquant nouvellement démasqué qui le dit.
+  const decouvreurs = attackers(apres, findKing(apres, camp), adverse);
+  const qui = enumerer(apres, decouvreurs);
+  return qui
+    ? `Cette pièce est clouée : la bouger découvrirait ton roi sur ${qui}.`
+    : 'Cette pièce est clouée : la bouger découvrirait ton roi.';
 }

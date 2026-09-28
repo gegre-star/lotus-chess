@@ -8,6 +8,7 @@ import { useProgress } from '../src/chess/ProgressContext';
 import { markGameSeen } from '../src/chess/progress';
 import { GAMES, type FamousGame } from '../src/chess/content';
 import { createEngine } from '../src/analysis';
+import { toucherCase } from '../src/chess/interaction';
 import { comparerAuMaitre, commenter, type Comparaison } from '../src/analysis/comparer';
 import {
   START_FEN,
@@ -40,6 +41,8 @@ export default function GamesScreen() {
   const [game, setGame] = useState<FamousGame | null>(null);
   const [ply, setPly] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
+  /** Pourquoi le dernier coup tenté a été refusé — jamais de refus muet. */
+  const [refus, setRefus] = useState<string | null>(null);
   const [comparaison, setComparaison] = useState<Comparaison | null>(null);
   const [reflexion, setReflexion] = useState(false);
   const [revele, setRevele] = useState(false);
@@ -65,6 +68,7 @@ export default function GamesScreen() {
   const ouvrir = useCallback((g: FamousGame) => {
     setGame(g);
     setPly(0);
+    setRefus(null);
     setSelected(null);
     setComparaison(null);
     setRevele(false);
@@ -74,6 +78,7 @@ export default function GamesScreen() {
     if (!parcours) return;
     setPly((n) => Math.min(parcours.coups.length, n + 1));
     setComparaison(null);
+    setRefus(null);
     setSelected(null);
     setRevele(false);
   }, [parcours]);
@@ -108,16 +113,20 @@ export default function GamesScreen() {
   const onPressSquare = useCallback(
     (square: number) => {
       if (!position || !aToi || comparaison || reflexion) return;
-      if (selected !== null) {
-        const candidat = movesFrom(position, selected).find((m) => m.to === square);
-        if (candidat) {
-          setSelected(null);
-          void proposer(candidat);
-          return;
-        }
+      const decision = toucherCase(position, selected, square);
+      if (decision.type === 'coup') {
+        setSelected(null);
+        setRefus(null);
+        void proposer(decision.move);
+        return;
       }
-      const piece = position.board[square];
-      setSelected(colorOf(piece) === position.turn ? square : null);
+      if (decision.type === 'refus') {
+        setSelected(null);
+        setRefus(decision.message);
+        return;
+      }
+      setRefus(null);
+      setSelected(decision.square);
     },
     [position, aToi, comparaison, reflexion, selected, proposer],
   );
@@ -165,9 +174,11 @@ export default function GamesScreen() {
   }
 
   // ---- partie en cours ----
-  const message = reflexion
-    ? 'Je compare avec la partie…'
-    : comparaison
+  const message = refus
+    ? refus
+    : reflexion
+      ? 'Je compare avec la partie…'
+      : comparaison
       ? `${commenter(comparaison, nomMaitre)} ${comparaison.feedback.texte}`
       : termine
         ? `Partie terminée. ${game.lecon}`
