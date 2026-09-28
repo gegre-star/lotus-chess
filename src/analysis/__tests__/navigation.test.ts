@@ -1,4 +1,12 @@
-import { ETAT_INITIAL, fauteVoisine, jouerVariante, naviguer, numeroter, type ContexteNavigation } from '../navigation';
+import {
+  ETAT_INITIAL,
+  fauteVoisine,
+  jouerVariante,
+  naviguer,
+  numeroter,
+  type ContexteNavigation,
+  type EtatRevue,
+} from '../navigation';
 import { coupDepuisUci } from '../uci';
 import { START_FEN, parseFEN } from '../../chess/engine';
 import type { Verdict } from '../../chess/coaching';
@@ -33,7 +41,7 @@ describe('navigation dans la revue', () => {
   });
 
   it('s’arrête sur la position finale, d’indice N', () => {
-    let e = { index: 7, suite: null };
+    let e: EtatRevue = { index: 7, suite: null };
     e = naviguer(e, { type: 'suivant' }, ctx());
     expect(e.index).toBe(8);
     e = naviguer(e, { type: 'suivant' }, ctx());

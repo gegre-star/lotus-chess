@@ -18,3 +18,4 @@ thème, c'est une mesure — et un rapport sans test correspondant est un vœu.
 | Règles du jeu | [regles-du-jeu.md](regles-du-jeu.md) |
 | Ouvertures | [ouvertures.md](ouvertures.md) |
 | Problèmes tactiques | [problemes-tactiques.md](problemes-tactiques.md) |
+| Revue de partie | [revue-de-partie.md](revue-de-partie.md) |
