@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { ChessBoard, type Arrow, type SquareBadge } from '../src/components/ChessBoard';
 import { CoachBubble, type BubbleTone } from '../src/components/CoachBubble';
@@ -45,6 +45,14 @@ export default function LearnScreen() {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [state, setState] = useState<StepState | null>(null);
+  /**
+   * Étapes déjà créditées, pour ne payer chaque exercice qu'une fois.
+   *
+   * Sans cela, refaire dix fois la même étape rapportait dix fois dix points :
+   * les niveaux et les trophées s'obtenaient en tapant deux cases en boucle,
+   * ce qui vide la progression de son sens.
+   */
+  const credite = useRef<Set<string>>(new Set());
 
   const boardSize = Math.min(width - 8, 460);
 
@@ -115,7 +123,11 @@ export default function LearnScreen() {
           const correct =
             expected && candidate.from === expected.from && candidate.to === expected.to;
           if (correct) {
-            update((p) => addXP(p, 10));
+            const cle = `${lesson.id}:${stepIndex}`;
+            if (!credite.current.has(cle) && !progress.lessons[lesson.id]) {
+              credite.current.add(cle);
+              update((p) => addXP(p, 10));
+            }
             setState({
               ...state,
               position: makeMove(position, candidate),
@@ -146,7 +158,7 @@ export default function LearnScreen() {
         badge: {},
       });
     },
-    [lesson, step, state, update],
+    [lesson, step, state, stepIndex, progress.lessons, update],
   );
 
   // ---- liste des leçons ----

@@ -1,5 +1,6 @@
 import { BOTS, GAMES, LESSONS, OPENINGS, PUZZLES, SECTIONS, TROPHIES } from '../content';
-import { bestValue, evaluate, isGoodMove, moveValue, MATE_SCORE, tolerance } from '../ai';
+import { bestValue, isGoodMove, moveValue, MATE_SCORE, tolerance } from '../ai';
+import { objectifAtteint } from '../puzzleState';
 import {
   findMove,
   gameStatus,
@@ -113,7 +114,8 @@ describe('problèmes', () => {
       if (puzzle.mate) {
         expect(gameStatus(pos)).toBe('mate');
       } else {
-        expect(evaluate(pos) - evaluate(start)).toBeGreaterThanOrEqual(puzzle.gain * 100 - 60);
+        // on applique la règle de l'écran lui-même, pas une approximation
+        expect(objectifAtteint(puzzle, start, pos)).toBe(true);
       }
     },
   );

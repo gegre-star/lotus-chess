@@ -12,6 +12,7 @@ import {
   type Position,
   colorOf,
   gameStatus,
+  inCheck,
   isWhite,
   legalMoves,
   makeMove,
@@ -68,6 +69,68 @@ export function evaluate(pos: Position): number {
     score += white ? value : -value;
   }
   return score;
+}
+
+/** Valeur du matériel présent sur l'échiquier, du point de vue des blancs. */
+export function material(pos: Position): number {
+  let score = 0;
+  for (const piece of pos.board) {
+    if (!piece) continue;
+    const value = PIECE_VALUE[piece.toUpperCase() as PieceType];
+    score += isWhite(piece) ? value : -value;
+  }
+  return score;
+}
+
+/**
+ * Matériel restant une fois les prises épuisées — l'avantage qui tient vraiment.
+ *
+ * Compter le matériel juste après une prise ment : « +9 » une demi-seconde
+ * avant que l'adversaire ne reprenne la dame n'est pas un avantage de neuf
+ * points. Cette recherche ne joue que des prises, jusqu'à ce qu'il n'y en ait
+ * plus d'intéressante, et rend le matériel de la position calme ainsi
+ * atteinte. C'est la mesure qu'un joueur fait de tête avant de se lancer dans
+ * un échange.
+ *
+ * Les échecs font exception : on ne peut pas « passer son tour » quand son roi
+ * est attaqué, donc toutes les parades sont examinées.
+ */
+export function stableMaterial(pos: Position, depth = 8): number {
+  const search = (p: Position, alpha: number, beta: number, reste: number): number => {
+    const echec = inCheck(p, p.turn);
+    const legaux = legalMoves(p);
+    if (legaux.length === 0) {
+      // mat : aucun matériel ne compense, pat : la partie est nulle
+      if (echec) return p.turn === 'w' ? -MATE_SCORE : MATE_SCORE;
+      return 0;
+    }
+    const immobile = material(p);
+    if (reste === 0) return immobile;
+    // sous échec il faut parer ; sinon on n'examine que les prises
+    const coups = echec ? legaux : legaux.filter((m) => m.captured || m.enPassant);
+    if (coups.length === 0) return immobile;
+
+    if (p.turn === 'w') {
+      // « stand pat » : les blancs ne sont pas obligés de prendre
+      let best = echec ? -Infinity : immobile;
+      let a = Math.max(alpha, best);
+      for (const m of orderMoves(coups)) {
+        best = Math.max(best, search(makeMove(p, m), a, beta, reste - 1));
+        a = Math.max(a, best);
+        if (beta <= a) break;
+      }
+      return best;
+    }
+    let best = echec ? Infinity : immobile;
+    let b = Math.min(beta, best);
+    for (const m of orderMoves(coups)) {
+      best = Math.min(best, search(makeMove(p, m), alpha, b, reste - 1));
+      b = Math.min(b, best);
+      if (b <= alpha) break;
+    }
+    return best;
+  };
+  return search(pos, -Infinity, Infinity, depth);
 }
 
 /** Examiner d'abord les grosses captures fait tomber bien plus de branches. */

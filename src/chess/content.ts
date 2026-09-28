@@ -1031,6 +1031,22 @@ export const PUZZLES: Puzzle[] = [
     "gain": 0
   },
   {
+    "id": "inter",
+    "theme": "Pièce en prise",
+    "rating": 700,
+    "fen": "4k3/8/8/8/8/8/1r6/K2R4 w - - 0 1",
+    "line": [
+      [
+        "a1",
+        "b2"
+      ]
+    ],
+    "hint": "L'adversaire a laissé une pièce à portée de ton roi.",
+    "desc": "La tour noire s'est avancée juste à côté du roi blanc, sans personne pour la défendre. Le roi la prend : même le roi capture, dès que la case est sûre.",
+    "mate": false,
+    "gain": 5
+  },
+  {
     "id": "dame-couloir",
     "theme": "Mat du couloir",
     "rating": 750,
@@ -1096,26 +1112,6 @@ export const PUZZLES: Puzzle[] = [
         "b7",
         "b8",
         "Q"
-      ],
-      [
-        "c6",
-        "d7"
-      ],
-      [
-        "g1",
-        "h1"
-      ],
-      [
-        "d7",
-        "e7"
-      ],
-      [
-        "h1",
-        "h2"
-      ],
-      [
-        "e7",
-        "f7"
       ]
     ],
     "hint": "Ton pion touche au but — mais le roi noir approche.",
@@ -1127,7 +1123,7 @@ export const PUZZLES: Puzzle[] = [
     "id": "tour-dame",
     "theme": "Gain de la dame",
     "rating": 850,
-    "fen": "3q4/8/8/8/8/8/8/3R2K1 w - - 0 1",
+    "fen": "3q4/8/8/7k/8/8/8/3R2K1 w - - 0 1",
     "line": [
       [
         "d1",
@@ -1172,18 +1168,6 @@ export const PUZZLES: Puzzle[] = [
       [
         "f7",
         "d8"
-      ],
-      [
-        "g8",
-        "h8"
-      ],
-      [
-        "d8",
-        "f7"
-      ],
-      [
-        "h8",
-        "g8"
       ]
     ],
     "hint": "Cherche un saut de cavalier qui attaque deux pièces à la fois.",
@@ -1221,24 +1205,12 @@ export const PUZZLES: Puzzle[] = [
       [
         "g6",
         "h6"
-      ],
-      [
-        "g8",
-        "h8"
-      ],
-      [
-        "h6",
-        "g6"
-      ],
-      [
-        "f1",
-        "d3"
       ]
     ],
     "hint": "Ton pion peut changer de vie.",
     "desc": "Le pion atteint la dernière rangée et se transforme : le matériel décide la partie.",
     "mate": false,
-    "gain": 5
+    "gain": 4.8
   },
   {
     "id": "promo-c",
@@ -1250,26 +1222,6 @@ export const PUZZLES: Puzzle[] = [
         "e7",
         "e8",
         "Q"
-      ],
-      [
-        "g7",
-        "h7"
-      ],
-      [
-        "g2",
-        "h2"
-      ],
-      [
-        "h7",
-        "g7"
-      ],
-      [
-        "h2",
-        "h3"
-      ],
-      [
-        "g7",
-        "h7"
       ]
     ],
     "hint": "Ton pion touche au but, et le roi noir est trop loin.",
@@ -1298,20 +1250,12 @@ export const PUZZLES: Puzzle[] = [
       [
         "b8",
         "c8"
-      ],
-      [
-        "g1",
-        "h1"
-      ],
-      [
-        "c8",
-        "d8"
       ]
     ],
     "hint": "Un seul saut attaque le roi et la tour.",
     "desc": "Le cavalier bondit et fourche le roi et la tour. Le roi bouge, le cavalier emporte la tour.",
     "mate": false,
-    "gain": 2
+    "gain": 1.8
   },
   {
     "id": "gen1",
@@ -1330,20 +1274,12 @@ export const PUZZLES: Puzzle[] = [
       [
         "f5",
         "g7"
-      ],
-      [
-        "a2",
-        "b3"
-      ],
-      [
-        "g7",
-        "f5"
       ]
     ],
     "hint": "Une pièce attaque deux cibles à la fois — laquelle ?",
     "desc": "Le coup crée une fourchette : deux pièces attaquées simultanément, l'adversaire ne peut en sauver qu'une.",
     "mate": false,
-    "gain": 4
+    "gain": 3.3
   },
   {
     "id": "gen5",
@@ -1362,20 +1298,12 @@ export const PUZZLES: Puzzle[] = [
       [
         "e3",
         "c3"
-      ],
-      [
-        "d6",
-        "b4"
-      ],
-      [
-        "c3",
-        "c6"
       ]
     ],
     "hint": "Cherche le coup qui menace deux choses en même temps.",
     "desc": "Une double attaque : deux menaces d'un coup, impossibles à parer toutes les deux.",
     "mate": false,
-    "gain": 3
+    "gain": 3.3
   },
   {
     "id": "gen9",
@@ -1394,20 +1322,12 @@ export const PUZZLES: Puzzle[] = [
       [
         "d4",
         "c6"
-      ],
-      [
-        "d3",
-        "e4"
-      ],
-      [
-        "a3",
-        "c1"
       ]
     ],
     "hint": "Une pièce attaque deux cibles à la fois — laquelle ?",
     "desc": "Le coup crée une fourchette : deux pièces attaquées simultanément, l'adversaire ne peut en sauver qu'une.",
     "mate": false,
-    "gain": 3
+    "gain": 3.3
   },
   {
     "id": "enfilade",
@@ -1426,18 +1346,6 @@ export const PUZZLES: Puzzle[] = [
       [
         "e1",
         "e7"
-      ],
-      [
-        "f4",
-        "g4"
-      ],
-      [
-        "g1",
-        "h1"
-      ],
-      [
-        "g4",
-        "h4"
       ]
     ],
     "hint": "Mets le roi en échec sur une ligne où la dame se cache derrière lui.",
@@ -1458,28 +1366,12 @@ export const PUZZLES: Puzzle[] = [
       [
         "h8",
         "g7"
-      ],
-      [
-        "g1",
-        "h1"
-      ],
-      [
-        "g7",
-        "h7"
-      ],
-      [
-        "h1",
-        "h2"
-      ],
-      [
-        "h7",
-        "h8"
       ]
     ],
     "hint": "Ton fou peut frapper une pièce bien plus précieuse que lui.",
     "desc": "Le fou capture la dame. Même repris, l'échange est largement gagnant : un fou contre une dame.",
     "mate": false,
-    "gain": 6
+    "gain": 5.7
   },
   {
     "id": "gen6",
@@ -1491,22 +1383,6 @@ export const PUZZLES: Puzzle[] = [
         "f7",
         "f8",
         "Q"
-      ],
-      [
-        "c3",
-        "a5"
-      ],
-      [
-        "f8",
-        "b8"
-      ],
-      [
-        "a5",
-        "c3"
-      ],
-      [
-        "a2",
-        "d5"
       ]
     ],
     "hint": "Ton pion peut changer de vie.",
@@ -1545,7 +1421,7 @@ export const PUZZLES: Puzzle[] = [
     "hint": "Ton pion peut changer de vie.",
     "desc": "Le pion atteint la dernière rangée et se transforme : le matériel décide la partie.",
     "mate": false,
-    "gain": 11
+    "gain": 11.3
   },
   {
     "id": "dame-cav",
@@ -1572,26 +1448,6 @@ export const PUZZLES: Puzzle[] = [
       [
         "e4",
         "b7"
-      ],
-      [
-        "e8",
-        "f8"
-      ],
-      [
-        "e1",
-        "f1"
-      ],
-      [
-        "f8",
-        "g8"
-      ],
-      [
-        "f1",
-        "e1"
-      ],
-      [
-        "g8",
-        "h8"
       ]
     ],
     "hint": "Déplace ton fou : que se passe-t-il derrière lui ?",
@@ -1616,18 +1472,6 @@ export const PUZZLES: Puzzle[] = [
       [
         "d4",
         "a1"
-      ],
-      [
-        "b6",
-        "d7"
-      ],
-      [
-        "a1",
-        "d4"
-      ],
-      [
-        "d7",
-        "f8"
       ]
     ],
     "hint": "Trouve la case d'où ta dame frappe deux cibles.",
@@ -1668,60 +1512,12 @@ export const PUZZLES: Puzzle[] = [
       [
         "e7",
         "d5"
-      ],
-      [
-        "h7",
-        "h6"
-      ],
-      [
-        "g1",
-        "h1"
-      ],
-      [
-        "h6",
-        "h5"
       ]
     ],
     "hint": "Trouve la case d'où ton cavalier attaque le roi et la dame.",
     "desc": "Le cavalier s'installe en fourchette sur le roi et la dame. C'est le motif le plus rentable du cavalier.",
     "mate": false,
     "gain": 9
-  },
-  {
-    "id": "inter",
-    "theme": "Interférence",
-    "rating": 1250,
-    "fen": "4k3/8/8/8/8/8/1r6/K2R4 w - - 0 1",
-    "line": [
-      [
-        "a1",
-        "b2"
-      ],
-      [
-        "e8",
-        "f8"
-      ],
-      [
-        "d1",
-        "e1"
-      ],
-      [
-        "f8",
-        "g8"
-      ],
-      [
-        "e1",
-        "f1"
-      ],
-      [
-        "g8",
-        "h8"
-      ]
-    ],
-    "hint": "Coupe la ligne de la tour noire.",
-    "desc": "En s'interposant, la pièce blanche coupe la coordination noire : c'est une interférence.",
-    "mate": false,
-    "gain": 5
   },
   {
     "id": "deviation",
@@ -1821,13 +1617,6 @@ export const PUZZLES: Puzzle[] = [
   }
 ];
 
-/**
- * Niveaux proposés pour l'adversaire Stockfish.
- *
- * Les bornes sont celles du moteur lui-même : il refuse de descendre sous
- * 1320, et c'est justement pourquoi les cinq personnages restent utiles pour
- * débuter — aucun réglage de Stockfish ne les remplace.
- */
 export const STOCKFISH_NIVEAUX: { elo: number; nom: string }[] = [
   { elo: 1320, nom: 'Doux' },
   { elo: 1700, nom: 'Solide' },
