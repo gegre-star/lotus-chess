@@ -11,6 +11,7 @@
  * - un gain annoncé qui ne correspond pas au gain réel, faute de compter la
  *   reprise adverse.
  */
+import { Cerveau } from '../brain/cerveau';
 import { LESSONS, PUZZLES } from '../content';
 import { material, stableMaterial } from '../ai';
 import { objectifAtteint } from '../puzzleState';
@@ -137,5 +138,57 @@ describe('objectif annoncé', () => {
       return material(apresCoupCle) - stableMaterial(apresCoupCle) > 50;
     });
     expect(trompeurs.map((p) => p.id)).toContain('skewer-fou');
+  });
+});
+
+/**
+ * Le gain vaut-il la peine ?
+ *
+ * Un problème qui « gagne » une pièce pour laisser les blancs perdants, ou pour
+ * finir roi contre roi, n'enseigne pas à gagner : `gen5` prenait un fou en
+ * restant à deux pions et demi de retard, `fourch-roi` et `skewer-fou` finissaient
+ * nulle. On mesure donc la position finale de la ligne officielle avec le
+ * moteur maison, et on exige un avantage net.
+ */
+describe('un gain annoncé est un vrai gain', () => {
+  test.each(PUZZLES.filter((p) => !p.mate).map((p) => [p.id, p] as const))(
+    '%s : les blancs sont nettement mieux à la fin de la ligne',
+    (_id, puzzle) => {
+      const fin = rejoue(puzzle.fen, puzzle.line);
+      const a = new Cerveau().analyser(fin, { profondeur: 6 });
+      const signe = fin.turn === 'w' ? 1 : -1;
+      // un mat annoncé compte pour un gain immense ; sinon au moins un pion
+      const avantage = a.mat !== null ? signe * Math.sign(a.mat) * 100000 : signe * (a.cp ?? 0);
+      expect(avantage).toBeGreaterThanOrEqual(100);
+    },
+  );
+});
+
+describe('un classement de difficulté cohérent', () => {
+  test('deux problèmes ne partagent pas la même position', () => {
+    const fens = PUZZLES.map((p) => p.fen.split(' ').slice(0, 2).join(' '));
+    expect(new Set(fens).size).toBe(fens.length);
+  });
+
+  test('les mats en un génériques, uniques et sans piège, sont des problèmes faciles', () => {
+    // `gen8` (1400) et `gen2` (1500) se résolvaient d'un seul coup évident,
+    // au même rang que des combinaisons de trois coups
+    PUZZLES.filter((p) => p.theme === 'Mat en un').forEach((p) => {
+      expect(`${p.id}: ${p.rating <= 900}`).toBe(`${p.id}: true`);
+    });
+  });
+
+  test('aucun motif ne prend plus de cinq problèmes, et la promotion pas plus de trois', () => {
+    // cinq promotions sur trente-trois : la promotion tenait plus de place que
+    // le clouage, l'attaque à la découverte ou la déviation réunis
+    const compte = new Map<string, number>();
+    PUZZLES.forEach((p) => compte.set(p.theme, (compte.get(p.theme) ?? 0) + 1));
+    compte.forEach((n, theme) => expect(`${theme}: ${n <= 5}`).toBe(`${theme}: true`));
+    expect(compte.get('Promotion')).toBeLessThanOrEqual(3);
+  });
+
+  test('le clouage et la découverte ont chacun leur problème', () => {
+    const themes = new Set(PUZZLES.map((p) => p.theme));
+    ['Clouage', 'Attaque à la découverte', 'Déviation', 'Enfilade'].forEach((t) => expect(themes.has(t)).toBe(true));
   });
 });

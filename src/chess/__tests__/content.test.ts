@@ -66,7 +66,15 @@ describe('leçons', () => {
     expect(gameStatus(parseFEN(stepOf('pat', 0).fen))).toBe('stalemate');
 
     // les leçons de mat doivent aboutir à un vrai mat
-    for (const [id, i] of [['mat', 1], ['escalier', 1], ['l-mat-dame', 1], ['pat', 1]] as const) {
+    // (l-mat-dame : l'étape 2 est la technique — roi d'abord, dame ensuite —
+    // et l'étape 3 le mat en un, plus près du but)
+    for (const [id, i] of [
+      ['mat', 1],
+      ['escalier', 1],
+      ['l-mat-dame', 2],
+      ['l-mat-dame', 3],
+      ['pat', 1],
+    ] as const) {
       const step = stepOf(id, i);
       const pos = parseFEN(step.fen);
       const mv = findMove(pos, at(step.task!.from), at(step.task!.to))!;

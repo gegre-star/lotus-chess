@@ -17,4 +17,5 @@ thème, c'est une mesure — et un rapport sans test correspondant est un vœu.
 | Parties historiques | [parties-historiques.md](parties-historiques.md) |
 | Règles du jeu | [regles-du-jeu.md](regles-du-jeu.md) |
 | Ouvertures | [ouvertures.md](ouvertures.md) |
+| Audit du contenu (maître FIDE) | [contenu-audit.md](contenu-audit.md) |
 | Problèmes tactiques | [problemes-tactiques.md](problemes-tactiques.md) |
