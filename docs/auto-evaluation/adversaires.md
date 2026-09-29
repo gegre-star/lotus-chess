@@ -52,7 +52,7 @@ Parties contre Stockfish bridé (`UCI_LimitStrength` / `UCI_Elo`), 100 ms par co
 | Pixou | 122 cp / 19,6 % | 104 cp / 13,2 % |
 | Marguerite | 110 cp / 17,9 % | 98 cp / 12,0 % |
 | Hugo | 103 cp / 15,3 % | 67 cp / 3,9 % |
-| Cyrano | 99 cp / 17,3 % | 63 cp / 4,2 % |
+| Cyrano | 99 cp / 17,3 % | 63–67 cp / 4,2–5,3 % (deux mesures) |
 
 Athéna : non mesurée à ce jour.
 

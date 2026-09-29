@@ -27,8 +27,8 @@ locale — essayer `npx expo start --tunnel`.
 
 ## Contenu
 
-27 leçons réparties en trois niveaux, 33 problèmes classés de 600 à 1550 sur
-16 thèmes tactiques, 17 ouvertures, 5 adversaires de 500 à 1900 Elo et
+28 leçons réparties en trois niveaux, 33 problèmes classés de 600 à 1550 sur
+17 thèmes tactiques, 19 exercices guidés, 17 ouvertures, 5 adversaires de 500 à 1900 Elo et
 12 trophées.
 
 Les textes, les positions et les personnages sont originaux. Les parties

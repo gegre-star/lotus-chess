@@ -20,3 +20,5 @@ thème, c'est une mesure — et un rapport sans test correspondant est un vœu.
 | Audit du contenu (maître FIDE) | [contenu-audit.md](contenu-audit.md) |
 | Problèmes tactiques | [problemes-tactiques.md](problemes-tactiques.md) |
 | Revue de partie | [revue-de-partie.md](revue-de-partie.md) |
+| Échiquier tactile | [echiquier-tactile.md](echiquier-tactile.md) |
+| Adversaires (calibration) | [adversaires.md](adversaires.md) |
