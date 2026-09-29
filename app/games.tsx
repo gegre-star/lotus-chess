@@ -9,6 +9,7 @@ import { markGameSeen } from '../src/chess/progress';
 import { GAMES, type FamousGame } from '../src/chess/content';
 import { createEngine } from '../src/analysis';
 import { toucherCase } from '../src/chess/interaction';
+import { PromotionDialog } from '../src/components/PromotionDialog';
 import { comparerAuMaitre, commenter, type Comparaison } from '../src/analysis/comparer';
 import {
   START_FEN,
@@ -43,11 +44,14 @@ export default function GamesScreen() {
   const [selected, setSelected] = useState<number | null>(null);
   /** Pourquoi le dernier coup tenté a été refusé — jamais de refus muet. */
   const [refus, setRefus] = useState<string | null>(null);
+  const [promo, setPromo] = useState<Move[] | null>(null);
   const [comparaison, setComparaison] = useState<Comparaison | null>(null);
   const [reflexion, setReflexion] = useState(false);
   const [revele, setRevele] = useState(false);
   const engine = useRef<ReturnType<typeof createEngine> | null>(null);
 
+  // sur mobile natif, la page ne doit pas défiler pendant qu'on glisse une pièce
+  const [glisse, setGlisse] = useState(false);
   const boardSize = Math.min(width - 8, 460);
 
   useEffect(
@@ -125,6 +129,10 @@ export default function GamesScreen() {
         setRefus(decision.message);
         return;
       }
+      if (decision.type === 'promotion') {
+        setPromo(decision.candidats);
+        return;
+      }
       setRefus(null);
       setSelected(decision.square);
     },
@@ -193,10 +201,11 @@ export default function GamesScreen() {
 
   return (
     <View style={S.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 8 }}>
+      <ScrollView scrollEnabled={!glisse} contentContainerStyle={{ paddingBottom: 8 }}>
         <CoachBubble coach="lotus" text={message} tone={ton} />
         <View style={styles.boardWrap}>
           <ChessBoard
+            onGlisser={setGlisse}
             position={position}
             size={boardSize}
             theme={progress.settings.board}
@@ -236,6 +245,17 @@ export default function GamesScreen() {
         />
         <Action testID="parties-quitter" label="Quitter" onPress={() => setGame(null)} />
       </ActionBar>
+      <PromotionDialog
+        candidats={promo}
+        blanc={position?.turn === 'w'}
+        onChoisir={(m) => {
+          setPromo(null);
+          setSelected(null);
+          setRefus(null);
+          void proposer(m);
+        }}
+        onAnnuler={() => setPromo(null)}
+      />
     </View>
   );
 }

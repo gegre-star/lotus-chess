@@ -26,9 +26,28 @@ describe('commentaire de comparaison', () => {
     expect(commenter(c, 'Morphy')).toContain('vaut autant');
   });
 
-  it('reconnaît un coup meilleur que celui du maître', () => {
+  it('reconnaît un coup meilleur que celui du maître, en le disant « selon le moteur »', () => {
     const c = base({ evalJoue: 300, evalMaitre: 50 });
-    expect(commenter(c, 'Anderssen')).toContain('meilleur que celui de Anderssen');
+    const texte = commenter(c, 'Anderssen');
+    expect(texte).toContain('meilleur que celui de Anderssen');
+    expect(texte).toContain('selon le moteur');
+    expect(texte).not.toContain('objectivement');
+  });
+
+  /**
+   * Régression : +30 cp d'écart suffisaient à écrire « objectivement
+   * meilleur ». À profondeur 10 c'est du bruit de mesure.
+   */
+  it('ne proclame pas la supériorité sur un écart de bruit', () => {
+    [30, 45, 99].forEach((ecart) => {
+      const texte = commenter(base({ evalJoue: 100 + ecart, evalMaitre: 100 }), 'Morphy');
+      expect(texte).toContain('vaut autant');
+      expect(texte).not.toContain('meilleur');
+    });
+  });
+
+  it('la proclame dès 100 centipions d’écart', () => {
+    expect(commenter(base({ evalJoue: 200, evalMaitre: 100 }), 'Morphy')).toContain('selon le moteur');
   });
 
   it('renvoie à la flèche quand le maître a trouvé mieux', () => {

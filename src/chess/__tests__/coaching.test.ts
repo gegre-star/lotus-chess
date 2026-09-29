@@ -62,14 +62,17 @@ describe('verdict', () => {
   });
 
   it('gradue les pertes', () => {
+    // à égalité, où les seuils en probabilité de gain valent à peu près les
+    // anciens seuils en centipions ; les cas hors égalité sont dans
+    // `coaching-verdict.test.ts`
     const cas: [number, string][] = [
       [40, 'bon'],
       [100, 'imprecision'],
-      [250, 'erreur'],
+      [200, 'erreur'],
       [900, 'gaffe'],
     ];
     cas.forEach(([perte, attendu]) => {
-      expect(noterCoup({ pos, move, meilleur: 1000, joue: 1000 - perte }).verdict).toBe(attendu);
+      expect(noterCoup({ pos, move, meilleur: 0, joue: -perte }).verdict).toBe(attendu);
     });
   });
 
@@ -94,7 +97,7 @@ describe('verdict', () => {
   });
 
   it('exprime la perte en points dans le texte', () => {
-    const f = noterCoup({ pos, move, meilleur: 1000, joue: 700 });
+    const f = noterCoup({ pos, move, meilleur: 0, joue: -300 });
     expect(f.texte).toContain('3,0');
   });
 });

@@ -52,6 +52,13 @@ tait. Après 1.e4 c5 2.Cf3, elle annonce « Défense sicilienne », et attend
 | L'ouverture n'est nommée que lorsqu'elle est distinguable | › « on se tait tant que rien ne distingue » |
 | La variante ne masque pas l'ouverture, ni l'inverse | › « la sicilienne avant que le dragon ne se distingue » |
 
+Depuis l'audit du contenu ([contenu-audit.md](contenu-audit.md)), chaque ligne
+porte un `distinctif` — le demi-coup qui lui donne son nom — et le nom se garde
+tant que la partie ne devient pas autre chose : `1.d4 d5 2.Cf3` n'est plus un
+« Système de Londres », et le gambit Evans reste italien au lieu de perdre son
+nom. Les tests correspondants sont dans `ouvertures.test.ts` › « transpositions
+et sorties du répertoire ».
+
 **Vérifié dans le navigateur**, sur l'export réellement publié : huit parties
 lancées contre Cyrano donnent quatre premières réponses différentes à 1.e4
 (e5, e6, c5, c6, d5, d6, Cf6 selon les tirages), et le titre affiche bien

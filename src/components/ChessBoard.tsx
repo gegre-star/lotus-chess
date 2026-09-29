@@ -1,20 +1,31 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { Animated, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ChessPiece } from './ChessPiece';
 import {
+  Case,
+  CIBLE_AUCUNE,
+  CIBLE_CAPTURE,
+  CIBLE_COUP,
+  type CodeCible,
+  type SquareBadge,
+} from './PlateauCase';
+import { ECHELLE_VOL, useGlisserDeposer } from './GlisserDeposer';
+import {
   FILES,
+  colorOf,
   fileOf,
   findKing,
   inCheck,
   rankOf,
   squareFromName,
-  squareName,
   type Move,
   type Piece,
   type Position,
 } from '../chess/engine';
 import type { BoardTheme } from '../chess/progress';
+
+export type { SquareBadge };
 
 export const BOARD_THEMES: Record<BoardTheme, { light: string; dark: string }> = {
   foret: { light: '#ebecd0', dark: '#779556' },
@@ -23,14 +34,16 @@ export const BOARD_THEMES: Record<BoardTheme, { light: string; dark: string }> =
   nuit: { light: '#8d9aa5', dark: '#46545f' },
 };
 
-export type SquareBadge = 'good' | 'bad';
 /** Une flèche : case de départ, case d'arrivée, couleur optionnelle. */
 export type Arrow = [string, string] | [string, string, string];
 
-const HIGHLIGHT = 'rgba(247,247,105,0.58)';
-const CHECK = 'rgba(228,87,76,0.55)';
-const DOT = 'rgba(20,20,16,0.20)';
 const ARROW_COLOR = '#f0a63a';
+
+// Valeurs par défaut hors de la fonction : `targets = []` dans les paramètres
+// créerait un tableau neuf à chaque rendu, et casserait tous les `useMemo`.
+const AUCUN_COUP: Move[] = [];
+const AUCUNE_FLECHE: Arrow[] = [];
+const AUCUN_BADGE: Record<number, SquareBadge> = {};
 
 interface ChessBoardProps {
   position: Position;
@@ -53,7 +66,30 @@ interface ChessBoardProps {
   ghost?: { square: number; piece: Piece } | null;
   arrows?: Arrow[];
   badges?: Record<number, SquareBadge>;
+  /**
+   * Toucher d'une case. Un glissement en produit deux : la case de départ au
+   * début du geste, la case d'arrivée à la fin (voir `GlisserDeposer`).
+   * Sans ce gestionnaire l'échiquier est inerte, glisser compris.
+   */
   onPressSquare?: (square: number) => void;
+  /**
+   * Cette pièce peut-elle être saisie ? Par défaut : toute pièce du camp au
+   * trait.
+   *
+   * Le composant ne connaît pas les règles de l'écran (camp du joueur, tour de
+   * l'adversaire, exercice qui n'autorise qu'une pièce). Cette prop sert à
+   * éviter un glissement qui ne mènerait nulle part ; elle n'est pas la seule
+   * garde : le glissement n'est de toute façon suivi que tant que `selected`
+   * désigne la case de départ, ce que seul l'écran décide.
+   */
+  peutGlisser?: (square: number) => boolean;
+  /**
+   * Prévient l'écran qu'un glissement commence (`true`) ou finit (`false`).
+   * Sur natif, l'écran y fige sa `ScrollView` (`scrollEnabled={!actif}`) :
+   * sans cela, elle peut reprendre le geste et l'annuler en plein vol. Sur le
+   * web, `touch-action: none` suffit et cette prop est facultative.
+   */
+  onGlisser?: (actif: boolean) => void;
 }
 
 /**
@@ -108,27 +144,131 @@ function arrowPath(from: number, to: number, flipped: boolean): string {
   ].join('');
 }
 
-export function ChessBoard({
+/** Les 64 cases dans l'ordre d'affichage : rangée 8 en haut, colonne a à gauche. */
+const ORDRE: number[] = [];
+for (let rang = 7; rang >= 0; rang -= 1) {
+  for (let fichier = 0; fichier < 8; fichier += 1) ORDRE.push(rang * 8 + fichier);
+}
+// retourner l'échiquier, c'est lire les mêmes cases à l'envers
+const ORDRE_RETOURNE = ORDRE.slice().reverse();
+
+/**
+ * Réglages propres au navigateur, sur la racine de l'échiquier.
+ *
+ * - `touch-action: none` : sans lui, Safari iPhone fait défiler la page sous
+ *   le doigt dès que le glissement commence, et annule le geste.
+ * - `user-select: none` : un glissement à la souris sélectionnait le texte
+ *   des coordonnées (les « 3 » et « 2 » surlignés en bleu).
+ * - `-webkit-touch-callout: none` : évite le menu contextuel d'iOS sur appui long.
+ * Absents du typage de React Native, d'où l'assertion ; ignorés hors web.
+ */
+const STYLE_NAVIGATEUR = {
+  touchAction: 'none',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
+  WebkitTouchCallout: 'none',
+  WebkitTapHighlightColor: 'transparent',
+} as unknown as ViewStyle;
+
+/**
+ * Flèches, dessinées à part : elles ne changent que si les flèches changent,
+ * jamais quand un coup ou une sélection re-rend l'échiquier.
+ */
+const Fleches = memo(function Fleches({
+  fleches,
+  size,
+  flipped,
+}: {
+  fleches: Arrow[];
+  size: number;
+  flipped: boolean;
+}) {
+  // Sans `pointerEvents="none"`, ce calque recouvre l'échiquier et absorbe
+  // tous les touchers : les cases deviennent intouchables dès qu'une flèche
+  // est affichée.
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill} testID="arrow-overlay">
+      <Svg width={size} height={size} viewBox="0 0 8 8">
+        {fleches.map(([from, to, color], i) => (
+          <Path
+            key={`${from}${to}${i}`}
+            d={arrowPath(squareFromName(from), squareFromName(to), flipped)}
+            fill={color ?? ARROW_COLOR}
+            opacity={0.85}
+          />
+        ))}
+      </Svg>
+    </View>
+  );
+});
+
+function ChessBoardBase({
   position,
   size,
   theme = 'foret',
   flipped = false,
   showCoords = true,
   selected = null,
-  targets = [],
+  targets = AUCUN_COUP,
   lastMove = null,
   ghost = null,
-  arrows = [],
-  badges = {},
+  arrows = AUCUNE_FLECHE,
+  badges = AUCUN_BADGE,
   onPressSquare,
+  peutGlisser,
+  onGlisser,
 }: ChessBoardProps) {
   const cell = size / 8;
   const colors = BOARD_THEMES[theme];
+  const plateauRef = useRef<View>(null);
 
-  const targetMap = useMemo(() => {
-    const map = new Map<number, Move>();
-    targets.forEach((m) => map.set(m.to, m));
-    return map;
+  // Le gestionnaire de l'écran change d'identité quand l'écran se re-rend ;
+  // les cases n'en connaissent qu'un, stable, qui lit la version à jour ici.
+  const surCase = useRef(onPressSquare);
+  useLayoutEffect(() => {
+    surCase.current = onPressSquare;
+  });
+  const appuiDirect = useCallback((carre: number) => surCase.current?.(carre), []);
+
+  const {
+    gestes,
+    glisse,
+    position: positionVol,
+    ignorerAppui,
+  } = useGlisserDeposer({
+    plateauRef,
+    taille: size,
+    retourne: flipped,
+    selectionnee: selected,
+    peutGlisser:
+      peutGlisser ??
+      ((carre) => {
+        const piece = position.board[carre];
+        return piece !== null && colorOf(piece) === position.turn;
+      }),
+    actif: Boolean(onPressSquare),
+    surAppui: appuiDirect,
+    surGlisser: onGlisser,
+  });
+
+  const appuyer = useCallback(
+    (carre: number) => {
+      if (ignorerAppui(carre)) return;
+      surCase.current?.(carre);
+    },
+    [ignorerAppui],
+  );
+
+  // Le glissement ne se montre que tant que l'écran garde la pièce sélectionnée :
+  // c'est sa façon d'accepter le premier toucher (voir `GlisserDeposer`).
+  const vol = glisse && selected === glisse.depart && position.board[glisse.depart] ? glisse : null;
+
+  const codesCible = useMemo(() => {
+    const codes = new Uint8Array(64);
+    targets.forEach((m) => {
+      codes[m.to] = m.captured || m.enPassant ? CIBLE_CAPTURE : CIBLE_COUP;
+    });
+    return codes;
   }, [targets]);
 
   // on interroge `inCheck` plutôt que `gameStatus` : un statut de nulle
@@ -139,135 +279,109 @@ export function ChessBoard({
     [position],
   );
 
-  // rangée 8 en haut, sauf si l'échiquier est retourné
-  const squares: number[] = [];
-  for (let rank = 7; rank >= 0; rank -= 1) {
-    for (let file = 0; file < 8; file += 1) squares.push(rank * 8 + file);
-  }
-  const ordered = flipped ? squares.slice().reverse() : squares;
+  // Des flèches identiques de contenu mais neuves d'identité (les écrans les
+  // reconstruisent à chaque rendu) ne doivent pas redessiner le calque.
+  const cleFleches = arrows.map((a) => a.join('>')).join('|');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const flechesStables = useMemo(() => arrows, [cleFleches]);
+
+  const pieceEnVol = vol ? position.board[vol.depart] : null;
+  const tailleVol = cell * 0.92;
 
   return (
-    <View style={[styles.board, { width: size, height: size }]}>
-      {ordered.map((square) => {
-        const file = fileOf(square);
-        const rank = rankOf(square);
-        const isDark = (file + rank) % 2 === 0;
-        const piece = position.board[square];
-        const move = targetMap.get(square);
-        const isCapture = Boolean(move && (move.captured || move.enPassant));
-        const highlighted =
-          selected === square || lastMove?.from === square || lastMove?.to === square;
-        // les repères se lisent sur le bord visible, qui change quand on retourne
-        const showFile = flipped ? rank === 7 : rank === 0;
-        const showRank = flipped ? file === 7 : file === 0;
-        const badge = badges[square];
+    // La racine n'écrête pas : la pièce en vol dépasse de l'échiquier quand on la
+    // porte vers un bord. Le rognage aux coins arrondis est fait par le fond.
+    <View
+      ref={plateauRef}
+      testID="plateau"
+      style={[
+        { width: size, height: size },
+        // au-dessus des voisins (bulle du coach, barre d'actions) le temps du vol
+        vol ? styles.enVol : null,
+        Platform.OS === 'web' ? STYLE_NAVIGATEUR : null,
+      ]}
+      {...gestes}
+    >
+      <View style={[styles.board, { width: size, height: size }]}>
+        {(flipped ? ORDRE_RETOURNE : ORDRE).map((carre) => {
+          const file = fileOf(carre);
+          const rank = rankOf(carre);
+          const isDark = (file + rank) % 2 === 0;
+          // les repères se lisent sur le bord visible, qui change quand on retourne
+          const showFile = flipped ? rank === 7 : rank === 0;
+          const showRank = flipped ? file === 7 : file === 0;
+          const piece = position.board[carre];
 
-        return (
-          <Pressable
-            key={square}
-            testID={`square-${squareName(square)}`}
-            onPress={onPressSquare ? () => onPressSquare(square) : undefined}
-            style={[
-              styles.square,
-              { width: cell, height: cell, backgroundColor: isDark ? colors.dark : colors.light },
-            ]}
-          >
-            {highlighted ? <View style={[styles.fill, { backgroundColor: HIGHLIGHT }]} /> : null}
-            {square === checkedKing && !badge ? (
-              <View style={[styles.fill, { backgroundColor: CHECK }]} />
-            ) : null}
+          return (
+            <Case
+              key={carre}
+              carre={carre}
+              piece={piece}
+              taille={cell}
+              fond={isDark ? colors.dark : colors.light}
+              couleurRepere={isDark ? colors.light : colors.dark}
+              surbrillance={
+                selected === carre || lastMove?.from === carre || lastMove?.to === carre
+              }
+              selectionnee={selected === carre}
+              cible={(codesCible[carre] ?? CIBLE_AUCUNE) as CodeCible}
+              echec={carre === checkedKing}
+              badge={badges[carre] ?? null}
+              // le fantôme ne recouvre jamais une pièce : la case s'en charge
+              fantome={ghost?.square === carre ? ghost.piece : null}
+              repereRang={showCoords && showRank ? String(rank + 1) : null}
+              repereColonne={showCoords && showFile ? FILES[file] : null}
+              survolee={vol?.sur === carre}
+              estompee={vol?.depart === carre}
+              surAppui={onPressSquare ? appuyer : undefined}
+            />
+          );
+        })}
 
-            {showCoords && showRank ? (
-              <Text
-                style={[styles.coord, styles.coordRank, { color: isDark ? colors.light : colors.dark }]}
-              >
-                {rank + 1}
-              </Text>
-            ) : null}
-            {showCoords && showFile ? (
-              <Text
-                style={[styles.coord, styles.coordFile, { color: isDark ? colors.light : colors.dark }]}
-              >
-                {FILES[file]}
-              </Text>
-            ) : null}
+        {flechesStables.length > 0 ? (
+          <Fleches fleches={flechesStables} size={size} flipped={flipped} />
+        ) : null}
+      </View>
 
-            {piece ? <ChessPiece piece={piece} size={cell * 0.92} /> : null}
-            {!piece && ghost?.square === square ? (
-              <View style={styles.ghost} testID={`ghost-${squareName(square)}`}>
-                <ChessPiece piece={ghost.piece} size={cell * 0.92} />
-              </View>
-            ) : null}
-
-            {move && !isCapture ? (
-              <View
-                style={[
-                  styles.dot,
-                  { width: cell * 0.3, height: cell * 0.3, borderRadius: cell * 0.15 },
-                ]}
-              />
-            ) : null}
-            {move && isCapture ? (
-              <View
-                style={[
-                  styles.ring,
-                  { width: cell * 0.92, height: cell * 0.92, borderRadius: cell * 0.46, borderWidth: cell * 0.08 },
-                ]}
-              />
-            ) : null}
-
-            {badge ? (
-              <View
-                style={[
-                  styles.badge,
-                  {
-                    width: cell * 0.36,
-                    height: cell * 0.36,
-                    borderRadius: cell * 0.18,
-                    backgroundColor: badge === 'good' ? '#81b64c' : '#e4574c',
-                  },
-                ]}
-              >
-                <Text style={[styles.badgeText, { fontSize: cell * 0.22 }]}>
-                  {badge === 'good' ? '✓' : '✕'}
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
-        );
-      })}
-
-      {/* Les flèches sont purement décoratives. Sans `pointerEvents="none"`, ce
-          calque recouvre l'échiquier et absorbe tous les touchers : les cases
-          deviennent intouchables dès qu'une flèche est affichée. */}
-      {arrows.length > 0 ? (
-        <View pointerEvents="none" style={StyleSheet.absoluteFill} testID="arrow-overlay">
-          <Svg width={size} height={size} viewBox="0 0 8 8">
-            {arrows.map(([from, to, color], i) => (
-              <Path
-                key={`${from}${to}${i}`}
-                d={arrowPath(squareFromName(from), squareFromName(to), flipped)}
-                fill={color ?? ARROW_COLOR}
-                opacity={0.85}
-              />
-            ))}
-          </Svg>
-        </View>
+      {pieceEnVol ? (
+        <Animated.View
+          pointerEvents="none"
+          testID="piece-en-vol"
+          style={[
+            styles.vol,
+            {
+              width: tailleVol,
+              height: tailleVol,
+              left: -tailleVol / 2,
+              top: -tailleVol / 2,
+              transform: [
+                { translateX: positionVol.x },
+                { translateY: positionVol.y },
+                { scale: ECHELLE_VOL },
+              ],
+            },
+          ]}
+        >
+          <ChessPiece piece={pieceEnVol} size={tailleVol} />
+        </Animated.View>
       ) : null}
     </View>
   );
 }
 
+/**
+ * Mémoïsé aussi : un écran qui se re-rend pour une autre raison (minuteur,
+ * bulle du coach) et repasse les mêmes props ne coûte alors rien. Les écrans
+ * qui reconstruisent `targets` ou `arrows` à chaque rendu re-rendent l'échiquier,
+ * mais pas ses cases, qui ne dépendent que de primitives.
+ */
+export const ChessBoard = memo(ChessBoardBase);
+
 const styles = StyleSheet.create({
   board: { flexDirection: 'row', flexWrap: 'wrap', borderRadius: 4, overflow: 'hidden' },
-  ghost: { position: 'absolute', opacity: 0.35 },
-  square: { alignItems: 'center', justifyContent: 'center' },
-  fill: { ...StyleSheet.absoluteFillObject },
-  dot: { position: 'absolute', backgroundColor: DOT },
-  ring: { position: 'absolute', borderColor: DOT },
-  coord: { position: 'absolute', fontSize: 9, fontWeight: '800' },
-  coordRank: { top: 1, left: 3 },
-  coordFile: { bottom: 0, right: 3 },
-  badge: { position: 'absolute', top: -2, right: -2, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: '#fff', fontWeight: '800' },
+  enVol: { zIndex: 1000 },
+  vol: {
+    position: 'absolute',
+    boxShadow: '0px 6px 10px rgba(0,0,0,0.35)',
+  },
 });

@@ -120,6 +120,51 @@ export const SECTIONS: Section[] = [
 
 export const LESSONS: Lesson[] = [
   {
+    // Les leçons suivantes disent « en e4 », « Cf3 », « Dxf7# » : sans cette
+    // leçon, la première consigne (« avance jusqu'en e4 ») parlait une langue
+    // que l'élève n'avait jamais apprise.
+    "id": "coordonnees",
+    "sec": 0,
+    "title": "Les cases et les coups",
+    "sub": "Lire l’échiquier et la notation",
+    "coach": "lotus",
+    "icon": "centre",
+    "steps": [
+      {
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "say": "Chaque case a un nom : une lettre pour sa colonne, de a à h en partant de la gauche, et un chiffre pour sa rangée, de 1 à 8 en partant des blancs. La case en bas à gauche est a1, celle en haut à droite h8.",
+        "arrows": [
+          [
+            "a1",
+            "h1"
+          ],
+          [
+            "a1",
+            "a8"
+          ]
+        ]
+      },
+      {
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "say": "Le pion blanc de la colonne e, sur la rangée 2, est « le pion e2 ». Avance-le de deux cases : il arrive en e4, et on écrit simplement « e4 ».",
+        "task": {
+          "from": "e2",
+          "to": "e4"
+        },
+        "arrows": [
+          [
+            "e2",
+            "e4"
+          ]
+        ]
+      },
+      {
+        "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+        "say": "Pour une pièce, on ajoute sa lettre devant la case : R le roi, D la dame, T la tour, F le fou, C le cavalier — et rien pour un pion. « Cf3 » : le cavalier va en f3. Un « x » signale une prise (Cxd5), un « + » un échec, un « # » un mat."
+      }
+    ]
+  },
+  {
     "id": "pion",
     "sec": 0,
     "title": "Le pion",
@@ -326,21 +371,21 @@ export const LESSONS: Lesson[] = [
     "icon": "bolt",
     "steps": [
       {
-        "fen": "4k3/8/8/8/8/8/8/3R2K1 w - - 0 1",
-        "say": "Quand une pièce attaque le roi, on dit « échec ». Amène ta tour en d8 pour donner échec.",
+        "fen": "4k3/8/8/8/8/8/8/R5K1 w - - 0 1",
+        "say": "Quand une pièce attaque le roi, on dit « échec ». Amène ta tour en a8 pour donner échec.",
         "task": {
-          "from": "d1",
-          "to": "d8"
+          "from": "a1",
+          "to": "a8"
         },
         "arrows": [
           [
-            "d1",
-            "d8"
+            "a1",
+            "a8"
           ]
         ]
       },
       {
-        "fen": "3Rk3/8/8/8/8/8/8/6K1 b - - 0 1",
+        "fen": "R3k3/8/8/8/8/8/8/6K1 b - - 0 1",
         "say": "Le roi noir est en échec : il DOIT réagir. Ici, il n'a qu'à s'écarter. Joue-le en e7.",
         "task": {
           "from": "e8",
@@ -354,7 +399,7 @@ export const LESSONS: Lesson[] = [
         ]
       },
       {
-        "fen": "3R4/4k3/8/8/8/8/8/6K1 w - - 0 1",
+        "fen": "R7/4k3/8/8/8/8/8/6K1 w - - 0 1",
         "say": "Trois façons de parer un échec : fuir avec le roi, capturer l'attaquant, ou intercaler une pièce sur la ligne d'attaque."
       }
     ]
@@ -369,7 +414,7 @@ export const LESSONS: Lesson[] = [
     "steps": [
       {
         "fen": "6k1/5ppp/8/8/8/8/8/3R2K1 w - - 0 1",
-        "say": "Le roi noir est enfermé par ses propres pions : ses seules fuites sont occupées.",
+        "say": "Le roi noir est enfermé par ses propres pions : devant lui, f7, g7 et h7 sont occupées. Une tour sur la dernière rangée le mate.",
         "arrows": [
           [
             "g8",
@@ -414,16 +459,16 @@ export const LESSONS: Lesson[] = [
         "say": "Ici, les noirs doivent jouer… mais aucun coup n'est légal, et leur roi n'est PAS en échec. C'est le pat : partie nulle."
       },
       {
-        "fen": "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1",
-        "say": "Ici le roi noir n'a déjà plus aucune case : si tu joues n'importe quoi, c'est pat ! Joue plutôt Dh7, protégée par ton roi : c'est mat.",
+        "fen": "7k/8/5K2/8/8/8/8/6Q1 w - - 0 1",
+        "say": "Attention au piège : Dg6 prive le roi noir de toute case sans lui donner échec, c'est pat, donc nulle. Joue Dg7 : échec, protégée par ton roi, aucune case : mat.",
         "task": {
-          "from": "f7",
-          "to": "h7"
+          "from": "g1",
+          "to": "g7"
         },
         "arrows": [
           [
-            "f7",
-            "h7"
+            "g1",
+            "g7"
           ]
         ]
       }
@@ -438,13 +483,13 @@ export const LESSONS: Lesson[] = [
     "icon": "k",
     "steps": [
       {
-        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
-        "say": "Le roque est le seul coup où deux pièces bougent ensemble : le roi fait deux pas vers la tour, qui saute par-dessus lui.",
+        "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+        "say": "Le roque est le seul coup où deux pièces bougent ensemble : le roi fait deux pas vers la tour, qui saute par-dessus lui. Il est impossible si le roi ou la tour a déjà bougé, si le roi est en échec, ou s'il traverse une case attaquée.",
         "arrowsFrom": "e1"
       },
       {
-        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
-        "say": "Roque : clique ton roi en e1, puis la case g1.",
+        "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+        "say": "Ici rien ne l'empêche : le roi et la tour n'ont pas bougé, et f1 et g1 sont libres. Roque : clique ton roi en e1, puis la case g1.",
         "task": {
           "from": "e1",
           "to": "g1"
@@ -457,7 +502,7 @@ export const LESSONS: Lesson[] = [
         ]
       },
       {
-        "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 0 5",
+        "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 5 4",
         "say": "Le roi est au coin, protégé par ses pions, et la tour rejoint le centre. Fais-le tôt, presque à chaque partie."
       }
     ]
@@ -604,7 +649,7 @@ export const LESSONS: Lesson[] = [
     "icon": "bolt",
     "steps": [
       {
-        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3",
+        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
         "say": "Règle d'or de l'ouverture : sors une pièce nouvelle à chaque coup, plutôt que de rejouer la même. Sors ton fou en c4.",
         "task": {
           "from": "f1",
@@ -618,8 +663,8 @@ export const LESSONS: Lesson[] = [
         ]
       },
       {
-        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
-        "say": "Cavaliers et fous dehors, roi bientôt à l'abri : ton ouverture est réussie. Évite de sortir la dame trop tôt, elle serait chassée."
+        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+        "say": "Un cavalier et un fou sortis : continue avec Cc3 et le roque. Évite de sortir la dame trop tôt, elle serait chassée."
       }
     ]
   },
@@ -660,7 +705,7 @@ export const LESSONS: Lesson[] = [
     "icon": "bolt",
     "steps": [
       {
-        "fen": "3r3k/8/7N/8/8/8/8/6K1 w - - 0 1",
+        "fen": "3r3k/6pp/7N/8/8/8/5PPP/6K1 w - - 0 1",
         "say": "Le cavalier est le roi de la fourchette. Trouve la case qui attaque le roi ET la tour.",
         "task": {
           "from": "h6",
@@ -674,8 +719,8 @@ export const LESSONS: Lesson[] = [
         ]
       },
       {
-        "fen": "3r1k2/5N2/8/8/8/8/8/6K1 w - - 0 1",
-        "say": "Le roi doit parer l'échec — et la tour reste en prise. Le cavalier ramasse la mise au coup suivant.",
+        "fen": "3r2k1/5Npp/8/8/8/8/5PPP/6K1 w - - 0 1",
+        "say": "Le roi a dû parer l'échec en g8 — et la tour reste en prise. Le cavalier ramasse la mise au coup suivant.",
         "arrows": [
           [
             "f7",
@@ -752,8 +797,8 @@ export const LESSONS: Lesson[] = [
     "icon": "bolt",
     "steps": [
       {
-        "fen": "4k3/1q6/8/8/4B3/8/8/4R1K1 w - - 0 1",
-        "say": "Ta tour vise le roi noir, mais ton propre fou lui bloque la route. Déplace le fou en capturant la dame !",
+        "fen": "3nk3/1q6/8/8/4B3/8/8/4R1K1 w - - 0 1",
+        "say": "Ta tour vise le roi noir, mais ton propre fou lui bloque la route. Déplace le fou en capturant la dame ! Elle est défendue par le cavalier, mais l'échec de la tour empêche la reprise.",
         "task": {
           "from": "e4",
           "to": "b7"
@@ -766,8 +811,8 @@ export const LESSONS: Lesson[] = [
         ]
       },
       {
-        "fen": "4k3/1B6/8/8/8/8/8/4R1K1 b - - 0 1",
-        "say": "Un seul coup, deux effets : le fou a pris la dame, et la tour donne échec. Les noirs doivent parer l'échec — la dame est déjà perdue.",
+        "fen": "3nk3/1B6/8/8/8/8/8/4R1K1 b - - 0 1",
+        "say": "Un seul coup, deux effets : le fou a pris la dame, et la tour donne échec. Les noirs doivent parer l'échec : le cavalier ne peut pas reprendre le fou, la dame est perdue.",
         "arrows": [
           [
             "e1",
@@ -786,11 +831,11 @@ export const LESSONS: Lesson[] = [
     "icon": "bolt",
     "steps": [
       {
-        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
+        "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
         "say": "Règle simple : échange quand tu as plus de matériel, évite quand tu en as moins. Avec un avantage, chaque échange te rapproche du gain."
       },
       {
-        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
+        "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
         "say": "Évite aussi d'échanger tes pièces actives contre des pièces adverses passives. Une bonne pièce vaut mieux que deux endormies."
       }
     ]
@@ -804,13 +849,41 @@ export const LESSONS: Lesson[] = [
     "icon": "mate",
     "steps": [
       {
-        "fen": "7k/8/6K1/8/8/8/8/1Q6 w - - 0 1",
-        "say": "Ton roi couvre déjà g7 et h7. Il ne reste qu'à donner l'échec sur la dernière rangée.",
-        "arrowsFrom": "b1"
+        "fen": "7k/8/8/5K2/8/8/8/6Q1 w - - 0 1",
+        "say": "La dame seule ne peut pas mater : elle a besoin de ton roi. Avant de chercher l'échec, rapproche le roi. Attention au piège : ici Dg6 laisserait le roi noir sans aucune case, sans lui donner échec. C'est pat, donc nulle.",
+        "arrowsFrom": "f5"
+      },
+      {
+        "fen": "7k/8/8/5K2/8/8/8/6Q1 w - - 0 1",
+        "say": "Amène ton roi en f6 : il prend des cases au roi noir, qui n'aura plus qu'une seule fuite.",
+        "task": {
+          "from": "f5",
+          "to": "f6"
+        },
+        "arrows": [
+          [
+            "f5",
+            "f6"
+          ]
+        ]
+      },
+      {
+        "fen": "8/7k/5K2/8/8/8/8/6Q1 w - - 2 2",
+        "say": "Le roi noir n'avait qu'une case : h7. Donne maintenant l'échec en g7 : la dame est protégée par ton roi, aucune fuite, aucune parade : mat.",
+        "task": {
+          "from": "g1",
+          "to": "g7"
+        },
+        "arrows": [
+          [
+            "g1",
+            "g7"
+          ]
+        ]
       },
       {
         "fen": "7k/8/6K1/8/8/8/8/1Q6 w - - 0 1",
-        "say": "Joue Db8 : échec, et aucune case de fuite. Retiens la méthode : d'abord le roi, ensuite la dame.",
+        "say": "Même méthode, quand le roi est déjà en place : il couvre g7 et h7, il ne reste qu'à donner l'échec sur la dernière rangée. Joue Db8 : d'abord le roi, ensuite la dame.",
         "task": {
           "from": "b1",
           "to": "b8"
@@ -834,7 +907,7 @@ export const LESSONS: Lesson[] = [
     "steps": [
       {
         "fen": "6k1/5pp1/7p/8/8/8/8/R5K1 w - - 0 1",
-        "say": "La 7e rangée, c'est là que dorment les pions adverses. Installe ta tour en a7 : elle les attaque tous à la fois.",
+        "say": "La 7e rangée, c'est là que dorment les pions adverses. Installe ta tour en a7 : elle attaque f7 et gêne le roi noir. Sur la 7e rangée, les pions adverses sont des cibles.",
         "task": {
           "from": "a1",
           "to": "a7"
@@ -847,8 +920,8 @@ export const LESSONS: Lesson[] = [
         ]
       },
       {
-        "fen": "6k1/R4pp1/7p/8/8/8/8/6K1 w - - 0 1",
-        "say": "Une tour sur la 7e rangée vaut souvent un pion de plus : elle ratisse les pions et enferme le roi sur sa dernière rangée."
+        "fen": "6k1/R4pp1/7p/8/8/8/8/6K1 b - - 1 1",
+        "say": "Une tour sur la 7e rangée vaut souvent un pion de plus : elle coupe le roi noir du reste de l'échiquier et vise les pions adverses."
       }
     ]
   },
@@ -861,13 +934,13 @@ export const LESSONS: Lesson[] = [
     "icon": "k",
     "steps": [
       {
-        "fen": "8/8/4k3/8/8/4K3/8/8 w - - 0 1",
-        "say": "Les dames ont disparu : ton roi n'est plus une cible, c'est une pièce de combat. Il faut le centraliser.",
+        "fen": "2k5/8/8/4p3/8/4K3/4P3/8 w - - 0 1",
+        "say": "Les dames ont disparu : ton roi n'est plus une cible, c'est une pièce de combat. Le roi noir est loin, et son pion e5 n'est défendu par personne.",
         "arrowsFrom": "e3"
       },
       {
-        "fen": "8/8/4k3/8/8/4K3/8/8 w - - 0 1",
-        "say": "Avance-le vers le centre, en e4, face au roi adverse.",
+        "fen": "2k5/8/8/4p3/8/4K3/4P3/8 w - - 0 1",
+        "say": "Centralise ton roi en e4 : de là il attaque le pion e5, et l'autre roi arrivera trop tard pour le défendre.",
         "task": {
           "from": "e3",
           "to": "e4"
@@ -924,13 +997,23 @@ export const LESSONS: Lesson[] = [
     "icon": "bolt",
     "steps": [
       {
-        "fen": "8/8/8/4k3/8/4K3/4P3/8 w - - 0 1",
-        "say": "En finale, les rois se font face. Celui qui NE doit PAS jouer a l'avantage : c'est l'opposition.",
-        "arrowsFrom": "e3"
+        "fen": "8/8/8/4k3/8/4K3/4P3/8 b - - 0 1",
+        "say": "En finale, les rois se font face avec une case entre eux. Celui qui NE doit PAS jouer a l'avantage : c'est l'opposition. Ici, c'est aux noirs de jouer : tu as l'opposition, et ils devront céder du terrain.",
+        "arrows": [
+          [
+            "e3",
+            "e5"
+          ]
+        ]
+      },
+      {
+        "fen": "8/8/8/4k3/8/4K3/4P3/8 b - - 0 1",
+        "say": "Ne pousse pas le pion trop tôt ! Quand le roi noir aura cédé, c'est ton roi qui passera devant le pion, puis le pion suivra. Cette technique gagne des finales entières."
       },
       {
         "fen": "8/8/8/4k3/8/4K3/4P3/8 w - - 0 1",
-        "say": "Ne pousse pas le pion trop tôt ! Le roi doit passer devant. Cette technique gagne des finales entières."
+        "say": "Même position, mais c'est à toi de jouer : l'opposition passe aux noirs et la finale est nulle. Celui qui doit jouer perd l'opposition.",
+        "arrowsFrom": "e3"
       }
     ]
   },
@@ -1103,6 +1186,22 @@ export const PUZZLES: Puzzle[] = [
     "gain": 0
   },
   {
+    "id": "gen2",
+    "theme": "Mat en un",
+    "rating": 800,
+    "fen": "6Q1/8/r3p2K/8/8/7k/7P/8 w - - 0 1",
+    "line": [
+      [
+        "g8",
+        "g3"
+      ]
+    ],
+    "hint": "Le mat est là, en un seul coup.",
+    "desc": "Échec et mat immédiat : le roi n'a ni fuite, ni parade, ni blocage.",
+    "mate": true,
+    "gain": 0
+  },
+  {
     "id": "promotion",
     "theme": "Promotion",
     "rating": 850,
@@ -1155,7 +1254,7 @@ export const PUZZLES: Puzzle[] = [
     "id": "fourch-tour",
     "theme": "Fourchette",
     "rating": 900,
-    "fen": "3r3k/8/7N/8/8/8/8/6K1 w - - 0 1",
+    "fen": "3r3k/6pp/7N/8/8/8/5PPP/6K1 w - - 0 1",
     "line": [
       [
         "h6",
@@ -1186,76 +1285,74 @@ export const PUZZLES: Puzzle[] = [
         "d8"
       ]
     ],
-    "hint": "Deux tours valent mieux qu'une sur la dernière rangée.",
-    "desc": "La première tour capture le défenseur, la seconde soutient l'invasion : mat sur la dernière rangée.",
+    "hint": "Une tour noire garde la dernière rangée : peux-tu la prendre avec échec ?",
+    "desc": "La tour prend le défenseur avec échec ; l'autre tour n'a rien à faire, c'est le mat du couloir.",
     "mate": true,
     "gain": 5
   },
   {
-    "id": "gen4",
-    "theme": "Promotion",
+    "id": "gen8",
+    "theme": "Mat en un",
     "rating": 900,
-    "fen": "8/3p2P1/6kN/8/5r2/8/3p4/1K3B2 w - - 0 1",
+    "fen": "1Q6/4k3/4n1K1/8/n7/2B5/5R2/8 w - - 0 1",
     "line": [
       [
-        "g7",
-        "g8",
-        "Q"
-      ],
-      [
-        "g6",
-        "h6"
+        "f2",
+        "f7"
       ]
     ],
-    "hint": "Ton pion peut changer de vie.",
-    "desc": "Le pion atteint la dernière rangée et se transforme : le matériel décide la partie.",
-    "mate": false,
-    "gain": 4.8
+    "hint": "Le mat est là, en un seul coup.",
+    "desc": "Échec et mat immédiat : le roi n'a ni fuite, ni parade, ni blocage.",
+    "mate": true,
+    "gain": 0
   },
   {
-    "id": "promo-c",
-    "theme": "Promotion",
-    "rating": 900,
-    "fen": "8/4P1k1/8/8/8/8/6K1/8 w - - 0 1",
+    "id": "clouage",
+    "theme": "Clouage",
+    "rating": 950,
+    "fen": "8/3k4/2n5/1B6/3P4/8/8/6K1 w - - 0 1",
     "line": [
       [
-        "e7",
-        "e8",
-        "Q"
+        "d4",
+        "d5"
+      ],
+      [
+        "d7",
+        "c7"
+      ],
+      [
+        "d5",
+        "c6"
       ]
     ],
-    "hint": "Ton pion touche au but, et le roi noir est trop loin.",
-    "desc": "Le pion se transforme en dame : avec une dame de plus, la finale est gagnée d'office.",
+    "hint": "Le cavalier est cloué : il ne peut pas fuir. Attaque-le une seconde fois.",
+    "desc": "Le cavalier ne peut pas bouger sans découvrir le roi. Le pion l’attaque une deuxième fois ; le roi ne peut pas reprendre en c6, que le fou protège.",
     "mate": false,
-    "gain": 8
+    "gain": 3.2
   },
   {
     "id": "fourch-roi",
     "theme": "Fourchette",
     "rating": 950,
-    "fen": "k1r5/8/8/8/2N5/8/8/6K1 w - - 0 1",
+    "fen": "2r3k1/5ppp/8/3N4/8/8/5PPP/6K1 w - - 0 1",
     "line": [
       [
-        "c4",
-        "b6"
+        "d5",
+        "e7"
       ],
       [
-        "a8",
-        "b8"
+        "g8",
+        "f8"
       ],
       [
-        "b6",
-        "c8"
-      ],
-      [
-        "b8",
+        "e7",
         "c8"
       ]
     ],
     "hint": "Un seul saut attaque le roi et la tour.",
-    "desc": "Le cavalier bondit et fourche le roi et la tour. Le roi bouge, le cavalier emporte la tour.",
+    "desc": "Le cavalier bondit en e7 : il donne échec au roi et attaque la tour. Le roi bouge, le cavalier emporte la tour.",
     "mate": false,
-    "gain": 1.8
+    "gain": 5
   },
   {
     "id": "gen1",
@@ -1285,7 +1382,7 @@ export const PUZZLES: Puzzle[] = [
     "id": "gen5",
     "theme": "Double attaque",
     "rating": 950,
-    "fen": "2K5/8/3q4/8/B7/2b4k/8/4R3 w - - 0 1",
+    "fen": "2K5/8/8/8/B7/2b4k/8/4R3 w - - 0 1",
     "line": [
       [
         "e1",
@@ -1301,7 +1398,7 @@ export const PUZZLES: Puzzle[] = [
       ]
     ],
     "hint": "Cherche le coup qui menace deux choses en même temps.",
-    "desc": "Une double attaque : deux menaces d'un coup, impossibles à parer toutes les deux.",
+    "desc": "Une double attaque : la tour donne échec au roi et vise en même temps le fou noir. Le roi doit bouger, le fou tombe.",
     "mate": false,
     "gain": 3.3
   },
@@ -1357,7 +1454,7 @@ export const PUZZLES: Puzzle[] = [
     "id": "skewer-fou",
     "theme": "Gain de la dame",
     "rating": 1000,
-    "fen": "7k/6q1/8/4B3/8/8/8/6K1 w - - 0 1",
+    "fen": "7k/5pqp/8/4B3/8/8/5PPP/6K1 w - - 0 1",
     "line": [
       [
         "e5",
@@ -1368,27 +1465,10 @@ export const PUZZLES: Puzzle[] = [
         "g7"
       ]
     ],
-    "hint": "Ton fou peut frapper une pièce bien plus précieuse que lui.",
-    "desc": "Le fou capture la dame. Même repris, l'échange est largement gagnant : un fou contre une dame.",
+    "hint": "Ton fou et leur dame se menacent mutuellement : à toi de jouer.",
+    "desc": "Le fou prend la dame, que seul le roi protège. Même repris, tu as échangé un fou (3 points) contre une dame (9) : six points de gagnés.",
     "mate": false,
     "gain": 5.7
-  },
-  {
-    "id": "gen6",
-    "theme": "Promotion",
-    "rating": 1000,
-    "fen": "8/1n3P2/1k4N1/8/8/2b5/B7/3K4 w - - 0 1",
-    "line": [
-      [
-        "f7",
-        "f8",
-        "Q"
-      ]
-    ],
-    "hint": "Ton pion peut changer de vie.",
-    "desc": "Le pion atteint la dernière rangée et se transforme : le matériel décide la partie.",
-    "mate": false,
-    "gain": 8
   },
   {
     "id": "gen7",
@@ -1424,6 +1504,30 @@ export const PUZZLES: Puzzle[] = [
     "gain": 11.3
   },
   {
+    "id": "decouv-pion",
+    "theme": "Attaque à la découverte",
+    "rating": 1100,
+    "fen": "8/8/8/5n2/8/8/3RP1k1/4K3 w - - 0 1",
+    "line": [
+      [
+        "e2",
+        "e4"
+      ],
+      [
+        "g2",
+        "f3"
+      ],
+      [
+        "e4",
+        "f5"
+      ]
+    ],
+    "hint": "Un coup de pion peut dégager ta tour : quelle case attaque-t-il en même temps ?",
+    "desc": "Le pion avance de deux cases : il découvre l’échec de la tour sur la 2e rangée et attaque le cavalier. Le roi doit parer l’échec, et le cavalier tombe.",
+    "mate": false,
+    "gain": 3.2
+  },
+  {
     "id": "dame-cav",
     "theme": "Mat de la dame",
     "rating": 1100,
@@ -1443,7 +1547,7 @@ export const PUZZLES: Puzzle[] = [
     "id": "decouverte",
     "theme": "Attaque à la découverte",
     "rating": 1150,
-    "fen": "4k3/1q6/8/8/4B3/8/8/4R1K1 w - - 0 1",
+    "fen": "3nk3/1q6/8/8/4B3/8/8/4R1K1 w - - 0 1",
     "line": [
       [
         "e4",
@@ -1451,7 +1555,7 @@ export const PUZZLES: Puzzle[] = [
       ]
     ],
     "hint": "Déplace ton fou : que se passe-t-il derrière lui ?",
-    "desc": "Le fou capture et libère la ligne de la tour, qui donne échec. Un seul coup, deux menaces : la découverte.",
+    "desc": "Le fou prend la dame et libère la colonne de la tour, qui donne échec. La dame était défendue par le cavalier, mais les noirs doivent d’abord parer l’échec : le cavalier ne peut pas reprendre.",
     "mate": false,
     "gain": 9
   },
@@ -1459,25 +1563,46 @@ export const PUZZLES: Puzzle[] = [
     "id": "double-att",
     "theme": "Double attaque",
     "rating": 1150,
-    "fen": "7k/8/1n6/8/8/8/5QK1/r7 w - - 0 1",
+    "fen": "4r3/1k6/4n3/Q7/8/3pP3/8/3K4 w - - 0 1",
     "line": [
       [
-        "f2",
-        "d4"
+        "a5",
+        "b5"
       ],
       [
-        "h8",
-        "g8"
+        "b7",
+        "c7"
       ],
       [
-        "d4",
-        "a1"
+        "b5",
+        "e8"
       ]
     ],
-    "hint": "Trouve la case d'où ta dame frappe deux cibles.",
-    "desc": "La dame attaque deux pièces à la fois. L'adversaire ne peut en sauver qu'une seule.",
+    "hint": "Trouve la case d’où ta dame donne échec et vise en même temps la tour.",
+    "desc": "La dame donne échec au roi et attaque la tour en diagonale. Le roi doit bouger : la tour tombe.",
     "mate": false,
     "gain": 5
+  },
+  {
+    "id": "gen4",
+    "theme": "Promotion",
+    "rating": 1200,
+    "fen": "8/3p2P1/6kN/8/5r2/8/3p4/1K3B2 w - - 0 1",
+    "line": [
+      [
+        "g7",
+        "g8",
+        "Q"
+      ],
+      [
+        "g6",
+        "h6"
+      ]
+    ],
+    "hint": "Ton pion peut changer de vie.",
+    "desc": "Le pion atteint la dernière rangée et se transforme : le matériel décide la partie.",
+    "mate": false,
+    "gain": 4.8
   },
   {
     "id": "etouffe",
@@ -1523,10 +1648,10 @@ export const PUZZLES: Puzzle[] = [
     "id": "deviation",
     "theme": "Déviation",
     "rating": 1300,
-    "fen": "6k1/3q1ppp/8/8/Q7/8/5PPP/3R2K1 w - - 0 1",
+    "fen": "6k1/3q1ppp/8/8/8/8/Q4PPP/6K1 w - - 0 1",
     "line": [
       [
-        "a4",
+        "a2",
         "a8"
       ],
       [
@@ -1538,8 +1663,8 @@ export const PUZZLES: Puzzle[] = [
         "e8"
       ]
     ],
-    "hint": "Attire la dame noire sur une case où elle ne défend plus rien.",
-    "desc": "La dame blanche s'offre pour attirer la défense hors de sa case : la dernière rangée s'effondre et le mat tombe.",
+    "hint": "Un échec sur la dernière rangée oblige la dame noire à quitter sa case.",
+    "desc": "Da8+ ne peut pas être prise. La dame noire doit s’interposer sur la dernière rangée, où la dame blanche la capture avec mat.",
     "mate": true,
     "gain": 9
   },
@@ -1556,38 +1681,6 @@ export const PUZZLES: Puzzle[] = [
     ],
     "hint": "Le cavalier verrouille la fuite du roi. Amène ta tour sur la colonne h.",
     "desc": "Mat d'Anastasie : le cavalier en e7 couvre g6 et g8, la tour donne l'échec sur la colonne h. Le roi est pris au piège.",
-    "mate": true,
-    "gain": 0
-  },
-  {
-    "id": "gen8",
-    "theme": "Mat en un",
-    "rating": 1400,
-    "fen": "1Q6/4k3/4n1K1/8/n7/2B5/5R2/8 w - - 0 1",
-    "line": [
-      [
-        "f2",
-        "f7"
-      ]
-    ],
-    "hint": "Le mat est là, en un seul coup.",
-    "desc": "Échec et mat immédiat : le roi n'a ni fuite, ni parade, ni blocage.",
-    "mate": true,
-    "gain": 0
-  },
-  {
-    "id": "gen2",
-    "theme": "Mat en un",
-    "rating": 1500,
-    "fen": "6Q1/8/r3p2K/8/8/7k/7P/8 w - - 0 1",
-    "line": [
-      [
-        "g8",
-        "g3"
-      ]
-    ],
-    "hint": "Le mat est là, en un seul coup.",
-    "desc": "Échec et mat immédiat : le roi n'a ni fuite, ni parade, ni blocage.",
     "mate": true,
     "gain": 0
   },
@@ -1684,9 +1777,9 @@ export const OPENINGS: Opening[] = [
     "note": "Développement naturel : le fou vise f7, le point faible du roque noir."
   },
   {
-    "nom": "Ruy Lopez (espagnole)",
+    "nom": "Partie espagnole",
     "san": "e4 e5 Nf3 Nc6 Bb5",
-    "note": "Le fou attaque le défenseur du pion e5 et installe une pression durable."
+    "note": "Aussi appelée Ruy Lopez. Le fou attaque le défenseur du pion e5 et installe une pression durable."
   },
   {
     "nom": "Défense sicilienne",
@@ -1704,9 +1797,9 @@ export const OPENINGS: Opening[] = [
     "note": "Solide et sûre : les noirs soutiennent d5 par c6 et gardent une bonne structure."
   },
   {
-    "nom": "Gambit dame",
+    "nom": "Gambit dame refusé",
     "san": "d4 d5 c4 e6 Nc3",
-    "note": "Les blancs offrent un pion pour ouvrir des lignes et dominer le centre."
+    "note": "Le « gambit » n'est qu'apparent : si les noirs prennent le pion c4, les blancs le reprennent sans peine. Ici ils refusent avec e6 et gardent un centre solide."
   },
   {
     "nom": "Défense est-indienne",
@@ -1714,7 +1807,7 @@ export const OPENINGS: Opening[] = [
     "note": "Les noirs cèdent le centre puis le contre-attaquent avec e5 ou c5."
   },
   {
-    "nom": "Partie anglaise",
+    "nom": "Ouverture anglaise",
     "san": "c4 e5 Nc3 Nf6 g3",
     "note": "Une sicilienne inversée : jeu de position flexible sur les cases claires."
   },

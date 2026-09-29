@@ -78,7 +78,7 @@ describe('règles particulières', () => {
 
   it('interdit le roque à travers une case attaquée', () => {
     // la tour noire en f8 contrôle f1 : le roi ne peut pas traverser
-    const pos = parseFEN('5r2/8/8/8/8/8/8/R3K2R w KQ - 0 1');
+    const pos = parseFEN('5r1k/8/8/8/8/8/8/R3K2R w KQ - 0 1');
     expect(findMove(pos, at('e1'), at('g1'))).toBeUndefined();
     expect(findMove(pos, at('e1'), at('c1'))).toBeDefined();
   });

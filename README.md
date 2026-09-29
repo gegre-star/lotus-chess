@@ -1,12 +1,17 @@
 # Lotus Chess
 
-Application mobile d'apprentissage des échecs, en français, entièrement hors
-ligne. Leçons guidées par des coachs, problèmes tactiques et parties contre
-l'ordinateur.
+Application d'apprentissage des échecs, en français. Leçons guidées par des
+coachs, problèmes tactiques, sprint de problèmes, pratique des finales, parties
+chronométrées contre l'ordinateur et revue de partie avec courbe d'évaluation.
+
+Elle fonctionne comme application web installable (PWA, voir
+`docs/livraison.md`) et comme application Expo. Une fois chargée, elle
+reste utilisable hors ligne ; les adversaires et la revue de partie utilisent
+alors le moteur maison, Stockfish s'ajoutant quand il est disponible sur le web.
 
 ## Lancer sur un iPhone
 
-Il te faut [Node.js 20](https://nodejs.org) sur ton ordinateur et l'application
+Il te faut [Node.js 22](https://nodejs.org) sur ton ordinateur et l'application
 **Expo Go** sur ton téléphone. Les deux doivent être sur le même réseau Wi‑Fi.
 
 ```bash
@@ -22,8 +27,8 @@ locale — essayer `npx expo start --tunnel`.
 
 ## Contenu
 
-27 leçons réparties en trois niveaux, 33 problèmes classés de 600 à 1550 sur
-16 thèmes tactiques, 17 ouvertures, 5 adversaires de 500 à 1900 Elo et
+28 leçons réparties en trois niveaux, 33 problèmes classés de 600 à 1550 sur
+17 thèmes tactiques, 19 exercices guidés, 17 ouvertures, 5 adversaires de 500 à 1900 Elo et
 12 trophées.
 
 Les textes, les positions et les personnages sont originaux. Les parties
@@ -35,11 +40,15 @@ Anderssen 1851, Byrne–Fischer 1956).
 | Dossier | Rôle |
 | --- | --- |
 | `src/chess/engine.ts` | Règles : coups légaux, roque, prise en passant, promotion, mat, pat |
-| `src/chess/ai.ts` | Évaluation, recherche minimax, notation des coups, classement Elo |
+| `src/chess/brain/` | Moteur maison « Cerveau » : plateau, recherche, évaluation, niveaux calibrés |
+| `src/chess/adversaire.ts` | Choix du coup de l'adversaire : répertoire, Stockfish ou Cerveau |
+| `src/chess/partie.ts`, `pendule.ts` | État d'une partie (valeur pure), pendules, sauvegarde |
+| `src/analysis/` | Analyse : Stockfish (web) ou Cerveau, revue de partie, statistiques |
+| `src/chess/ai.ts` | Aides matérielles (`material`, `stableMaterial`), classement Elo |
 | `src/chess/content.ts` | Leçons, problèmes, ouvertures, bots, parties célèbres |
 | `src/chess/progress.ts` | Points, trophées, sauvegarde locale |
 | `src/components/` | Échiquier, pièces vectorielles, coachs, éléments d'interface |
-| `app/` | Les quatre onglets |
+| `app/` | Les écrans : accueil, problèmes, apprendre, exercices, jouer, finales, réglages |
 
 ## Vérification
 
@@ -65,7 +74,9 @@ coup trouvé par le moteur. Sur un problème de mat, la tolérance est nulle :
 les scores de mat encodent la rapidité, donc un mat plus lent est refusé — un
 entraîneur doit demander le mat le plus court.
 
-**La force des bots se règle sur deux axes** : la profondeur de recherche et
-une probabilité de jouer au hasard. C'est ce second réglage qui rend les
-adversaires faibles réellement battables par un débutant, au lieu de jouer
-parfaitement mais sans vision.
+**La force des bots est calibrée, pas déclarée.** Chaque adversaire a été mesuré en
+jouant contre Stockfish bridé, et sa faiblesse est humaine : il cherche moins
+profond, voit moins de reprises et hésite entre des coups plausibles. Il ne
+joue jamais un coup tiré au sort. Les mesures, leurs limites (environ ±100 Elo,
+échelle de Stockfish et non de chess.com) et la comparaison avec l'ancien
+système sont dans `docs/auto-evaluation/adversaires.md`.

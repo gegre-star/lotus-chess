@@ -60,11 +60,25 @@ export async function comparerAuMaitre(
   };
 }
 
+/**
+ * Écart, en centipions, à partir duquel on ose dire que le coup de l'élève
+ * bat celui du maître.
+ *
+ * Un moteur à profondeur 10 se trompe de plusieurs dizaines de centipions
+ * entre deux coups voisins : +30 est du bruit, et annoncer à un élève qu'il a
+ * « battu Morphy » sur cette base serait faux une fois sur deux. À 100, l'écart
+ * dépasse l'incertitude de la mesure.
+ */
+export const ECART_MEILLEUR_QUE_LE_MAITRE = 100;
+
 /** Phrase de conclusion, selon que l'élève a trouvé, égalé ou manqué. */
 export function commenter(c: Comparaison, nomMaitre: string): string {
   if (c.identique) return `C’est exactement le coup de ${nomMaitre}.`;
   const ecart = c.evalJoue - c.evalMaitre;
-  if (ecart > 30) return `Ton coup est différent — et objectivement meilleur que celui de ${nomMaitre} !`;
+  // « selon le moteur » : le verdict est une évaluation, pas une vérité
+  if (ecart >= ECART_MEILLEUR_QUE_LE_MAITRE) {
+    return `Ton coup est différent — et, selon le moteur, meilleur que celui de ${nomMaitre} !`;
+  }
   if (ecart > -30) return `Ton coup n’est pas celui de la partie, mais il vaut autant.`;
   return `${nomMaitre} a trouvé mieux. Regarde la flèche verte.`;
 }

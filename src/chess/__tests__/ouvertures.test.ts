@@ -123,3 +123,70 @@ describe('nommer l’ouverture', () => {
     expect(nommerOuverture(['e2e4', 'e7e6', 'd2d4', 'd7d5', 'b1c3'])).toBe('Défense française');
   });
 });
+
+/**
+ * Les faux noms de l'audit.
+ *
+ * Le répertoire ne contient qu'une ligne par ouverture : tant qu'aucune autre
+ * ligne ne partageait le début d'une partie, on la nommait sur le seul début,
+ * même si le coup qui fait l'ouverture n'était pas joué. Trois transpositions
+ * fréquentes en donnaient la preuve, et un quatrième cas — le nom qui
+ * disparaît quand la partie quitte la liste — prouvait l'autre défaut.
+ */
+describe('nommer l’ouverture : transpositions et sorties du répertoire', () => {
+  test('1.d4 d5 2.Cf3 (Cf6) n’est pas encore le système de Londres', () => {
+    // Ff4 est le coup qui fait Londres ; sans lui, cette position vient aussi
+    // bien d'un Réti inversé, d'une slave ou d'un gambit dame
+    expect(nommerOuverture(['d2d4', 'd7d5', 'g1f3'])).toBeNull();
+    expect(nommerOuverture(['d2d4', 'd7d5', 'g1f3', 'g8f6'])).toBeNull();
+    expect(nommerOuverture(['d2d4', 'd7d5', 'g1f3', 'g8f6', 'c1f4'])).toBe('Système de Londres');
+  });
+
+  test('1.e4 c5 2.Cc3 reste une sicilienne : la « fermée » attend g3', () => {
+    expect(nommerOuverture(['e2e4', 'c7c5', 'b1c3'])).toBe('Défense sicilienne');
+    expect(nommerOuverture(['e2e4', 'c7c5', 'b1c3', 'b8c6'])).toBe('Défense sicilienne');
+    expect(nommerOuverture(['e2e4', 'c7c5', 'b1c3', 'b8c6', 'g2g3'])).toBe('Sicilienne fermée');
+  });
+
+  test('1.d4 Cf6 2.c4 e6 3.Cc3 n’est pas la nimzo-indienne : elle attend Fb4', () => {
+    const debut = ['d2d4', 'g8f6', 'c2c4', 'e7e6', 'b1c3'];
+    expect(nommerOuverture(debut)).toBeNull();
+    expect(nommerOuverture([...debut, 'f8b4'])).toBe('Défense nimzo-indienne');
+  });
+
+  test('le nom survit à la sortie du répertoire : le gambit Evans reste italien', () => {
+    // 4.b4 ne figure dans aucune ligne ; l'ancien code rendait alors `null`
+    const evans = ['e2e4', 'e7e5', 'g1f3', 'b8c6', 'f1c4', 'f8c5', 'b2b4'];
+    expect(nommerOuverture(evans)).toBe('Partie italienne');
+    // et il ne s'efface pas non plus dix coups plus tard
+    expect(nommerOuverture([...evans, 'c5b4', 'c2c3', 'b4a5'])).toBe('Partie italienne');
+  });
+
+  test('un nouveau nom remplace l’ancien quand la partie se précise', () => {
+    // après 5.Fc4 c'est la partie italienne ; ...Cf6 en fait les deux cavaliers
+    const c4 = ['e2e4', 'e7e5', 'g1f3', 'b8c6', 'f1c4'];
+    expect(nommerOuverture(c4)).toBe('Partie italienne');
+    expect(nommerOuverture([...c4, 'g8f6'])).toBe('Défense des deux cavaliers');
+  });
+
+  test('1.c4 est déjà l’ouverture anglaise, 1.c4 c5 la symétrique', () => {
+    expect(nommerOuverture(['c2c4'])).toBe('Ouverture anglaise');
+    expect(nommerOuverture(['c2c4', 'c7c5'])).toBe('Anglaise symétrique');
+  });
+
+  test('chaque ligne porte un coup distinctif qui existe', () => {
+    LIGNES.forEach((l) => {
+      expect(l.distinctif).toBeGreaterThanOrEqual(1);
+      expect(l.distinctif).toBeLessThanOrEqual(l.coups.length);
+    });
+  });
+
+  test.each(LIGNES.map((l) => [l.nom, l] as const))(
+    '« %s » se reconnaît en entier, et pas avant son coup distinctif',
+    (_nom, ligne) => {
+      expect(nommerOuverture(ligne.coups)).toBe(ligne.nom);
+      // un demi-coup avant le coup distinctif, le nom ne doit pas encore se lire
+      expect(nommerOuverture(ligne.coups.slice(0, ligne.distinctif - 1))).not.toBe(ligne.nom);
+    },
+  );
+});

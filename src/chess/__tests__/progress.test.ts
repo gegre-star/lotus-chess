@@ -7,6 +7,8 @@ import { LESSONS, PUZZLES } from '../content';
 import {
   addXP,
   completeLesson,
+  completerFinale,
+  POINTS_FINALE,
   earnedTrophies,
   emptyProgress,
   failPuzzle,
@@ -206,7 +208,7 @@ describe('lecture d’un état sauvegardé', () => {
     const restored = normalize({ xp: 120, settings: { sound: false } });
     expect(restored.xp).toBe(120);
     expect(restored.elo).toBe(800);
-    expect(restored.settings).toEqual({ sound: false, coords: true, board: 'foret' });
+    expect(restored.settings).toEqual({ sound: false, vibration: true, coords: true, board: 'foret' });
     expect(restored.history).toEqual([]);
   });
 
@@ -243,5 +245,117 @@ describe('normalisation d’une sauvegarde existante', () => {
     expect(normalize(null).xp).toBe(0);
     expect(normalize('n’importe quoi').xp).toBe(0);
     expect(normalize(undefined).exercises).toEqual({});
+  });
+});
+
+describe('série de jours et objectifs du jour', () => {
+  const {
+    BONUS_DU_JOUR,
+    CIBLES_DU_JOUR,
+    enregistrerActivite,
+    objectifsAffiches,
+    serieVivante,
+    veille,
+  } = jest.requireActual('../progress') as typeof import('../progress');
+
+  test('la veille tient compte des fins de mois et d’année, bissextiles comprises', () => {
+    expect(veille('2026-09-28')).toBe('2026-09-27');
+    expect(veille('2026-10-01')).toBe('2026-09-30');
+    expect(veille('2027-01-01')).toBe('2026-12-31');
+    expect(veille('2028-03-01')).toBe('2028-02-29');
+    expect(veille('2027-03-01')).toBe('2027-02-28');
+  });
+
+  test('la première activité ouvre une série d’un jour', () => {
+    const { progress } = enregistrerActivite(emptyProgress(), 'lecon', '2026-09-28');
+    expect(progress.serieJours).toEqual({ dernier: '2026-09-28', courante: 1, meilleure: 1 });
+  });
+
+  test('plusieurs activités le même jour ne prolongent pas la série', () => {
+    let p = enregistrerActivite(emptyProgress(), 'lecon', '2026-09-28').progress;
+    p = enregistrerActivite(p, 'probleme', '2026-09-28').progress;
+    expect(p.serieJours.courante).toBe(1);
+  });
+
+  test('un jour de plus prolonge la série, un jour manqué la remet à un', () => {
+    let p = enregistrerActivite(emptyProgress(), 'lecon', '2026-09-26').progress;
+    p = enregistrerActivite(p, 'lecon', '2026-09-27').progress;
+    p = enregistrerActivite(p, 'lecon', '2026-09-28').progress;
+    expect(p.serieJours).toMatchObject({ courante: 3, meilleure: 3 });
+    p = enregistrerActivite(p, 'lecon', '2026-09-30').progress; // le 29 est manqué
+    expect(p.serieJours).toMatchObject({ courante: 1, meilleure: 3 });
+  });
+
+  test('les compteurs du jour repartent à zéro le lendemain', () => {
+    let p = enregistrerActivite(emptyProgress(), 'probleme', '2026-09-28').progress;
+    p = enregistrerActivite(p, 'probleme', '2026-09-28').progress;
+    expect(objectifsAffiches(p, '2026-09-28').problemes).toBe(2);
+    expect(objectifsAffiches(p, '2026-09-29').problemes).toBe(0);
+    p = enregistrerActivite(p, 'probleme', '2026-09-29').progress;
+    expect(p.objectifs).toMatchObject({ jour: '2026-09-29', problemes: 1 });
+  });
+
+  test('le bonus est versé une seule fois, quand les trois cibles sont atteintes', () => {
+    const jour = '2026-09-28';
+    let p = emptyProgress();
+    const xp0 = p.xp;
+    for (let i = 0; i < CIBLES_DU_JOUR.problemes; i += 1) p = enregistrerActivite(p, 'probleme', jour).progress;
+    p = enregistrerActivite(p, 'lecon', jour).progress;
+    expect(p.xp).toBe(xp0); // il manque la partie
+    expect(p.objectifs.bonus).toBe(false);
+    p = enregistrerActivite(p, 'partie', jour).progress;
+    expect(p.xp).toBe(xp0 + BONUS_DU_JOUR);
+    expect(p.objectifs.bonus).toBe(true);
+    // une activité de plus ne le reverse pas
+    p = enregistrerActivite(p, 'probleme', jour).progress;
+    expect(p.xp).toBe(xp0 + BONUS_DU_JOUR);
+  });
+
+  test('la série s’éteint si ni aujourd’hui ni hier n’ont eu d’activité', () => {
+    const p = enregistrerActivite(emptyProgress(), 'lecon', '2026-09-28').progress;
+    expect(serieVivante(p, '2026-09-28')).toBe(1);
+    expect(serieVivante(p, '2026-09-29')).toBe(1); // hier : encore vivante, on peut la prolonger
+    expect(serieVivante(p, '2026-09-30')).toBe(0);
+  });
+
+  test('les actions existantes alimentent bien les objectifs', () => {
+    let p = completeLesson(emptyProgress(), 'pion', '2026-09-28').progress;
+    expect(p.objectifs.lecons).toBe(1);
+    p = solvePuzzle(p, PUZZLES[0].id, { seconds: 10, failed: false, hinted: false }, '2026-09-28').progress;
+    expect(p.objectifs.problemes).toBe(1);
+    p = finishGame(p, 'Pixou', 'win', 820, '2026-09-28').progress;
+    expect(p.objectifs.parties).toBe(1);
+    expect(p.serieJours.courante).toBe(1);
+  });
+
+  test('normalize refuse des données de série absurdes', () => {
+    const n = normalize({
+      serieJours: { dernier: 'hier', courante: -3, meilleure: 'beaucoup' },
+      objectifs: { jour: 12, lecons: '5', problemes: -1, parties: 2.6, bonus: 'oui' },
+    });
+    expect(n.serieJours).toEqual({ dernier: null, courante: 0, meilleure: 0 });
+    expect(n.objectifs).toEqual({ jour: null, lecons: 0, problemes: 0, parties: 3, bonus: false });
+  });
+});
+
+describe('finales', () => {
+  test('une finale rapporte ses points une seule fois', () => {
+    const a = completerFinale(emptyProgress(), 'mat-dame', '2026-09-28').progress;
+    expect(a.finales['mat-dame']).toBe(true);
+    expect(a.xp).toBe(POINTS_FINALE);
+    const b = completerFinale(a, 'mat-dame', '2026-09-28').progress;
+    expect(b.xp).toBe(POINTS_FINALE);
+  });
+
+  test('une finale compte dans la série du jour', () => {
+    const a = completerFinale(emptyProgress(), 'mat-tour', '2026-09-28').progress;
+    expect(a.serieJours.courante).toBe(1);
+  });
+
+  test('normalize garde les finales valides et écarte le reste', () => {
+    const n = normalize({ finales: { 'mat-dame': true, 'x': 'oui' } });
+    expect(n.finales['mat-dame']).toBe(true);
+    expect(n.finales.x).toBeFalsy();
+    expect(normalize({ finales: 12 }).finales).toEqual({});
   });
 });

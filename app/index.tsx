@@ -7,7 +7,15 @@ import { TROPHY_LABEL } from '../src/components/trophies';
 import { C, S } from '../src/components/theme';
 import { useProgress } from '../src/chess/ProgressContext';
 import { LESSONS, PUZZLES, SECTIONS, TROPHIES } from '../src/chess/content';
-import { XP_PER_LEVEL, levelOf, xpIntoLevel } from '../src/chess/progress';
+import {
+  BONUS_DU_JOUR,
+  CIBLES_DU_JOUR,
+  XP_PER_LEVEL,
+  levelOf,
+  objectifsAffiches,
+  serieVivante,
+  xpIntoLevel,
+} from '../src/chess/progress';
 
 function Stat({ value, label }: { value: string | number; label: string }) {
   return (
@@ -30,6 +38,13 @@ export default function ChessHome() {
   const puzzlesDone = Object.keys(progress.puzzles).length;
   const trophiesWon = Object.keys(progress.trophies).length;
   const level = levelOf(progress.xp);
+  const jour = objectifsAffiches(progress);
+  const serie = serieVivante(progress);
+  const objectifs: { cle: string; icone: string; libelle: string; fait: number; cible: number }[] = [
+    { cle: 'lecons', icone: '🎓', libelle: 'Leçon', fait: jour.lecons, cible: CIBLES_DU_JOUR.lecons },
+    { cle: 'problemes', icone: '🧩', libelle: 'Problèmes', fait: jour.problemes, cible: CIBLES_DU_JOUR.problemes },
+    { cle: 'parties', icone: '⚔', libelle: 'Partie', fait: jour.parties, cible: CIBLES_DU_JOUR.parties },
+  ];
 
   const greeting =
     trophiesWon === 0
@@ -60,6 +75,35 @@ export default function ChessHome() {
         <ProgressBar value={xpIntoLevel(progress.xp)} max={XP_PER_LEVEL} />
         <View style={styles.levelChip}>
           <Text style={[styles.levelText, { color: C.muted2 }]}>{level + 1}</Text>
+        </View>
+      </View>
+
+      <View style={S.sectionRow}>
+        <Text style={S.sectionTitle}>Objectifs du jour</Text>
+        <Text style={[S.sectionMeta, serie > 0 ? { color: C.gold } : null]} testID="serie-jours">
+          {serie > 0 ? `🔥 ${serie} jour${serie > 1 ? 's' : ''} de suite` : 'Commence une série'}
+        </Text>
+      </View>
+      <View style={[S.pad, { gap: 8 }]}>
+        <View style={[S.card, { gap: 10 }]}>
+          {objectifs.map((o) => {
+            const atteint = o.fait >= o.cible;
+            return (
+              <View key={o.cle} style={S.row} testID={`objectif-${o.cle}`}>
+                <Text style={{ fontSize: 18 }}>{o.icone}</Text>
+                <Text style={[S.itemTitle, { fontSize: 14, width: 84 }]}>{o.libelle}</Text>
+                <ProgressBar value={Math.min(o.fait, o.cible)} max={o.cible} />
+                <Text style={[S.sectionMeta, { width: 34, textAlign: 'right' }, atteint ? { color: C.green } : null]}>
+                  {atteint ? '✓' : `${o.fait}/${o.cible}`}
+                </Text>
+              </View>
+            );
+          })}
+          <Text style={S.itemSub}>
+            {jour.bonus
+              ? `Bonus du jour touché : +${BONUS_DU_JOUR} points.`
+              : `Les trois objectifs remplis rapportent +${BONUS_DU_JOUR} points.`}
+          </Text>
         </View>
       </View>
 

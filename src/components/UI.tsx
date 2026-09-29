@@ -75,11 +75,13 @@ interface ListItemProps {
   done?: boolean;
   onPress: () => void;
   left?: React.ReactNode;
+  testID?: string;
 }
 
-export function ListItem({ title, subtitle, done, onPress, left }: ListItemProps) {
+export function ListItem({ title, subtitle, done, onPress, left, testID }: ListItemProps) {
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       style={({ pressed }) => [styles.item, done ? styles.itemDone : null, pressed ? styles.pressed : null]}
     >
@@ -90,6 +92,42 @@ export function ListItem({ title, subtitle, done, onPress, left }: ListItemProps
       </View>
       <Text style={styles.chevron}>{done ? '✓' : '›'}</Text>
     </Pressable>
+  );
+}
+
+interface ChipsProps<T extends string> {
+  options: { valeur: T; libelle: string }[];
+  valeur: T;
+  onChange: (valeur: T) => void;
+  /** Préfixe des identifiants de test : `${testID}-${valeur}`. */
+  testID?: string;
+}
+
+/**
+ * Sélecteur à choix unique, en pastilles : couleur, cadence…
+ *
+ * Les pastilles passent à la ligne plutôt que de déborder : cinq cadences ne
+ * tiennent pas sur les 390 px d'un iPhone.
+ */
+export function Chips<T extends string>({ options, valeur, onChange, testID }: ChipsProps<T>) {
+  return (
+    <View style={styles.chips}>
+      {options.map((o) => {
+        const actif = o.valeur === valeur;
+        return (
+          <Pressable
+            key={o.valeur}
+            testID={testID ? `${testID}-${o.valeur}` : undefined}
+            accessibilityRole="button"
+            accessibilityState={{ selected: actif }}
+            onPress={() => onChange(o.valeur)}
+            style={[styles.chip, actif ? styles.chipActif : null]}
+          >
+            <Text style={[styles.chipTexte, actif ? styles.chipTexteActif : null]}>{o.libelle}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -116,6 +154,18 @@ export function Dialog({ visible, title, message, children, onClose }: DialogPro
 }
 
 const styles = StyleSheet.create({
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: C.surface2,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  chipActif: { backgroundColor: C.greenDark, borderColor: C.green },
+  chipTexte: { color: C.muted, fontSize: 13, fontWeight: '800' },
+  chipTexteActif: { color: '#fff' },
   actions: {
     flexDirection: 'row',
     gap: 6,

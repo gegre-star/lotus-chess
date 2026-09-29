@@ -30,7 +30,7 @@ jobs:
       - name: Installer Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Installer les dépendances
@@ -57,7 +57,12 @@ jobs:
       # Sans manifeste, « Sur l'écran d'accueil » ne crée qu'un raccourci vers
       # Safari : iOS ne considère pas l'application comme installée et traite
       # son stockage comme celui d'un site ordinaire, effaçable après sept
-      # jours sans visite. Voir scripts/finaliser-web.mjs.
+      # jours sans visite. Écrit aussi sw.js, le service worker qui rend
+      # l'application utilisable sans réseau (moteur Stockfish compris), et pose
+      # la politique de sécurité du contenu ; `LOTUS_CSP: '0'` la retirerait si
+      # un navigateur la refusait. Le script échoue bruyamment si le HTML
+      # d'Expo n'a plus la forme attendue : le déploiement s'arrête alors.
+      # Voir scripts/finaliser-web.mjs et docs/livraison.md.
       - name: Finaliser le site
         run: node scripts/finaliser-web.mjs dist
         env:
