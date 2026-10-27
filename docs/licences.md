@@ -16,13 +16,14 @@ des images des bibliothèques de navigation.
 | --- | --- | --- |
 | Stockfish 18 (moteur d'échecs) | GNU GPL v3 | `public/engine/stockfish-18-lite-single.wasm` |
 | Stockfish.js 18 (enveloppe WebAssembly, Chess.com, LLC) | GNU GPL v3 (en-tête du fichier : « License: GPLv3 ») | `public/engine/stockfish-18-lite-single.js` |
-| Réseau NNUE `nn-9067e33176e` (Linmiao Xu, « linrock ») | crédité dans l'en-tête ; licence propre non précisée par le fichier — voir « À faire vérifier » | embarqué dans le `.wasm` |
+| Réseau NNUE `nn-9067e33176e` (Linmiao Xu, « linrock ») | CC0, par la règle de dépôt du site fishtest (voir `public/engine/README.md`, « Licence du réseau de neurones ») | embarqué dans le `.wasm` ; copie dans `public/engine/source/` |
 
 Texte de la licence : `public/engine/LICENSE-stockfish.txt`. Version exacte,
-empreintes SHA-256, adresses du code source (dépôts
-`official-stockfish/Stockfish` et `nmrugg/stockfish.js`, page du réseau) et
-offre de source : `public/engine/README.md`. Ce dossier est publié à côté du
-binaire (`…/engine/`) et mis en cache par le service worker avec lui.
+empreintes SHA-256, commit de l'enveloppe et offre de source :
+`public/engine/README.md`. Le code source correspondant est **archivé dans ce
+dépôt** (`public/engine/source/`) et publié à côté du binaire (`…/engine/`) ;
+le README et la licence sont mis en cache par le service worker avec le
+moteur, l'archive de source ne l'est pas (elle est servie à la demande).
 
 Le moteur s'exécute dans un Web Worker séparé et n'échange avec l'application
 que des lignes de texte du protocole UCI (voir `public/engine/README.md`).
@@ -74,17 +75,26 @@ contient pas : voir « À faire vérifier ».
    (« simple agrégation ») plutôt qu'un ouvrage unique. Le confirmer, ou
    décider de publier l'application elle-même sous une licence compatible,
    demande un avis juridique.
-2. **Suffisance de l'offre de source.** La GPL v3, article 6, admet qu'un code
-   source hébergé sur un autre serveur soit indiqué « à côté du binaire », mais
-   en obligeant le distributeur à garantir qu'il reste disponible aussi
-   longtemps que nécessaire. Pointer vers des dépôts tiers en dépend. Faire
-   confirmer si cela suffit, ou archiver le code source de la révision exacte
-   dans ce dépôt / une « release » (ce qui est le plus sûr, et gratuit).
-3. **Licence du réseau NNUE** `nn-9067e33176e` : l'en-tête ne crédite que son
-   auteur. À confirmer auprès de la page du réseau (adresse dans
-   `public/engine/README.md`).
-4. **Étiquette Git exacte** de `nmrugg/stockfish.js` correspondant à
-   `stockfish@18.0.8` : à relever et à inscrire dans `public/engine/README.md`.
+2. ~~Suffisance de l'offre de source~~ — **traité.** Le code source de la
+   révision exacte (arbre du commit `93c994592dcf3b4b21052ab925e9b534df9c0918`
+   de `nmrugg/stockfish.js`, 585 Ko) et le réseau NNUE (6,6 Mo) sont archivés
+   dans `public/engine/source/`, avec leurs empreintes. L'offre ne dépend plus
+   de dépôts tiers. **Limite** : le `.wasm` n'a pas été recompilé pour
+   confirmer que ces sources redonnent ce binaire ; le lien repose sur le
+   commit que le registre npm associe à `stockfish@18.0.8` et sur l'identité
+   des empreintes du `.js` et du `.wasm` avec le paquet npm.
+3. ~~Licence du réseau NNUE~~ — **traité, avec deux réserves.** Le code source
+   public de fishtest (`nn_upload.html.j2`) fait déclarer à l'auteur de tout
+   réseau déposé qu'il le publie sous **CC0**. Réserves : c'est la règle du
+   site, la page propre à `nn-9067e33176e` n'a pas pu être lue (vérification
+   anti-robot) ; et le README de Stockfish précise que les réseaux sont
+   entraînés sur des données Leela Chess Zero sous licence ODbL — l'effet
+   éventuel de cette licence sur un réseau entraîné reste une question
+   juridique, non tranchée ici.
+4. ~~Étiquette Git exacte~~ — **traité.** Version `stockfish@18.0.8` =
+   commit `93c994592dcf3b4b21052ab925e9b534df9c0918` de `nmrugg/stockfish.js`
+   (indiqué par le registre npm ; le commit s'intitule « 18.0.8 »). Aucune
+   étiquette Git n'a été relevée : seul le commit est établi.
 5. **Avis de droit d'auteur MIT/BSD.** Distribuer le bundle sans les avis des
    61 paquets est l'usage courant, mais la lettre de ces licences les demande.
    Une page « Licences » dans l'application, alimentée par le relevé
