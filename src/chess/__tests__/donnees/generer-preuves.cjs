@@ -9,7 +9,7 @@
  * position de l'exercice (mêmes coups légaux), sinon ils échouent en disant
  * de relancer ce script.
  *
- * Usage, depuis `lotus-chess/` :
+ * Usage, depuis la racine du dépôt :
  *
  *   node src/chess/__tests__/donnees/generer-preuves.cjs [profondeur] [--force]
  *
