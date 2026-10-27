@@ -43,8 +43,12 @@ https://tests.stockfishchess.org/nns?network_name=nn-9067e33176e
 
 - **Enveloppe WebAssembly** : Stockfish.js 18, de Chess.com, LLC, dépôt
   `nmrugg/stockfish.js`. Distribuée ici sous la forme du paquet npm
-  `stockfish@18.0.8` (version relevée à l'import de ces fichiers ; elle ne
-  figure pas dans les fichiers eux-mêmes).
+  `stockfish@18.0.8`. Le registre npm indique pour cette version le commit
+  `93c994592dcf3b4b21052ab925e9b534df9c0918` de `nmrugg/stockfish.js` (le
+  commit s'intitule « 18.0.8 »). Les empreintes SHA-256 du `.js` et du `.wasm`
+  de ce dossier sont **identiques** à celles des fichiers
+  `bin/stockfish-18-lite-single.*` du paquet npm téléchargé (comparaison
+  faite octet pour octet par empreinte).
 - **Moteur** : Stockfish 18, dépôt `official-stockfish/Stockfish`, par
   T. Romstad, M. Costalba, J. Kiiski, G. Linscott et les autres contributeurs.
 - **Réseau NNUE** : `nn-9067e33176e`, de Linmiao Xu (linrock), page du réseau
@@ -54,31 +58,62 @@ https://tests.stockfishchess.org/nns?network_name=nn-9067e33176e
 
 Stockfish et son enveloppe sont sous **GNU General Public License v3**. Toute
 personne qui reçoit ces fichiers avec l'application a le droit d'obtenir le
-code source correspondant, gratuitement :
+code source correspondant, gratuitement. Il est **fourni ici même**, dans le
+dossier `source/` publié à côté du binaire (`…/engine/source/`), sans dépendre
+de dépôts tiers :
 
-1. **Le code source complet** de l'enveloppe et du moteur se trouve dans les
-   deux dépôts publics ci-dessus, dont les adresses sont celles que l'auteur
-   du build a lui-même placées en tête du fichier :
-   - https://github.com/nmrugg/stockfish.js — enveloppe et scripts de
-     compilation vers WebAssembly ;
-   - https://github.com/official-stockfish/Stockfish — moteur ;
-   - https://tests.stockfishchess.org/nns?network_name=nn-9067e33176e —
-     réseau NNUE `nn-9067e33176e`.
-2. **Offre écrite** : si ces adresses cessaient de répondre, ou si la
-   révision exacte correspondant à ces binaires vous était introuvable,
-   écrivez au dépôt qui publie cette application, `gegre-star/lotus-chess`
-   sur GitHub (onglet « Issues »), en citant les empreintes SHA-256 du tableau
-   ci-dessus : le code source correspondant vous sera fourni sur le même
-   canal, sans frais autres que ceux de sa copie. Cette offre vaut aussi
-   longtemps que ces fichiers sont distribués avec l'application.
+| Fichier | Contenu | SHA-256 |
+| --- | --- | --- |
+| `source/stockfish.js-18.0.8-source.tar.gz` | arbre complet du commit `93c994592dcf3b4b21052ab925e9b534df9c0918` de `nmrugg/stockfish.js` : `src/` (code C++ de Stockfish tel qu'il est compilé vers WebAssembly, avec `nnue/`, `emscripten/` et le `Makefile`), `build.js` (script de compilation), `Copying.txt` (GPL v3) et `AUTHORS` | `06b4d44284f6bba4501c046434459e58d58691ac9a5cd03d076bad7c8e305fdb` |
+| `source/nn-9067e33176e8.nnue` | le réseau NNUE (6 617 595 octets) que le script de compilation télécharge et vérifie par son nom (les 12 premiers chiffres de son SHA-256) | `9067e33176e8c5edb7aa8db6a3aedd012f84a1f39872e86357c6c2d0993f314d` |
 
-À vérifier lors de la prochaine mise à jour du moteur (non contrôlable depuis
-ce dépôt, sans accès au réseau au moment de la rédaction) : l'étiquette Git
-exacte de `nmrugg/stockfish.js` correspondant à `stockfish@18.0.8`, à noter
-ici pour que « la révision exacte » soit une adresse et non une recherche.
-Pour que l'offre ne dépende pas de la survie de dépôts tiers, il est
-recommandé d'archiver dans ce dépôt (ou dans une « release ») le code source
-de cette révision — voir `docs/licences.md`.
+L'archive est produite par `git archive` puis `gzip -n` : la refaire depuis le
+même commit redonne la même empreinte.
+
+**Pour recompiler** : suivre le `README.md` de l'archive (Emscripten 3.1.7
+dans le `PATH`, puis `./build.js`, options dans `./build.js --help`). Le script
+appelle `make net` dans `src/` pour télécharger et vérifier le réseau
+(option `--do-not-verify-nets` pour s'en passer) ; le nom du réseau de cette
+variante, `nn-9067e33176e8.nnue`, est écrit dans `src/lite_nets.h`. Le fichier
+ci-dessus est fourni pour ne pas dépendre de ce téléchargement ; l'emplacement
+où le script le cherche n'a pas été essayé ici.
+
+**Ce qui n'a pas été fait** : le `.wasm` n'a pas été recompilé pour comparer
+le résultat à celui de ce dossier (Emscripten 3.1.7 n'était pas disponible).
+Le lien entre ces sources et ces binaires repose sur le commit que le registre
+npm associe à la version 18.0.8 et sur l'identité des empreintes avec le
+paquet npm.
+
+**Autres adresses** (pour mémoire, non nécessaires à l'obtention du source) :
+- https://github.com/nmrugg/stockfish.js — enveloppe et scripts de compilation ;
+- https://github.com/official-stockfish/Stockfish — moteur d'origine ;
+- https://tests.stockfishchess.org/nns?network_name=nn-9067e33176e — page du
+  réseau.
+
+**Offre écrite** : si l'un de ces fichiers venait à manquer, écrivez au dépôt
+qui publie cette application, `gegre-star/lotus-chess` sur GitHub (onglet
+« Issues »), en citant les empreintes SHA-256 ci-dessus : le code source
+correspondant vous sera fourni sur le même canal, sans frais autres que ceux
+de sa copie. Cette offre vaut aussi longtemps que ces fichiers sont
+distribués avec l'application.
+
+## Licence du réseau de neurones
+
+Le réseau `nn-9067e33176e` est publié sur le site de test de Stockfish
+(fishtest). Le formulaire de dépôt de ce site, dans son code source public
+(`official-stockfish/fishtest`, `server/fishtest/templates/nn_upload.html.j2`),
+indique : « By uploading, you license your network under a CC0 license », et
+oblige à cocher : « You are the author of this network or have obtained the
+network with a CC0 license ». Tout réseau de ce site est donc **mis par son
+auteur sous licence CC0** (renonciation aux droits ; redistribution libre).
+
+Deux réserves, dites telles quelles :
+- c'est la règle du site, relevée dans son code ; la page propre à ce réseau
+  n'a pas pu être lue (elle est derrière une vérification anti-robot) ;
+- le `README.md` de Stockfish indique que ses réseaux sont entraînés sur les
+  données du projet Leela Chess Zero, « made available under the Open Database
+  License (ODbL) ». Si cette licence de la base de données de départ pèse sur le
+  réseau entraîné est une question juridique que ce dépôt ne tranche pas.
 
 ## Comment l'application utilise le moteur
 
