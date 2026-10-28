@@ -1,3 +1,8 @@
+// AsyncStorage repose sur un module natif : on utilise le mock fourni par la librairie
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 import { PROBLEMES_LICHESS } from '../problemes-lichess';
 import {
   NOTE_INITIALE,
@@ -15,6 +20,87 @@ import {
   type EtatLichess,
 } from '../lichess';
 import { legalMoves, parseFEN } from '../engine';
+import { emptyProgress, normalize, terminerBibliotheque } from '../progress';
+
+describe('progression de la Bibliothèque', () => {
+  const jour = '2026-10-27';
+
+  it('une réussite sans aide monte la note, ajoute des points et allonge la série', () => {
+    const { progress } = terminerBibliotheque(
+      emptyProgress(), 'abc', 1000, { reussi: true, indice: false, secondes: 10 }, jour,
+    );
+    expect(progress.bibliotheque.note).toBeGreaterThan(NOTE_INITIALE);
+    expect(progress.bibliotheque.serie).toBe(1);
+    expect(progress.bibliotheque.reussis).toBe(1);
+    expect(progress.bibliotheque.vus.abc).toBe(true);
+    expect(progress.xp).toBeGreaterThan(0);
+  });
+
+  it('un échec baisse la note, remet la série à zéro et ne donne aucun point', () => {
+    let p = terminerBibliotheque(
+      emptyProgress(), 'a', 1000, { reussi: true, indice: false, secondes: 10 }, jour,
+    ).progress;
+    const xp = p.xp;
+    p = terminerBibliotheque(p, 'b', 1000, { reussi: false, indice: false, secondes: 10 }, jour).progress;
+    expect(p.bibliotheque.serie).toBe(0);
+    expect(p.bibliotheque.meilleureSerie).toBe(1);
+    expect(p.xp).toBe(xp);
+    expect(p.bibliotheque.note).toBeLessThan(p.bibliotheque.meilleure);
+    expect(p.bibliotheque.joues).toBe(2);
+  });
+
+  it('un indice casse la série', () => {
+    const p = terminerBibliotheque(
+      emptyProgress(), 'a', 1000, { reussi: true, indice: true, secondes: 10 }, jour,
+    ).progress;
+    expect(p.bibliotheque.serie).toBe(0);
+    expect(p.bibliotheque.reussis).toBe(1);
+  });
+
+  it('les points ne sont versés qu’à la première réussite d’un problème', () => {
+    const premiere = terminerBibliotheque(
+      emptyProgress(), 'a', 1000, { reussi: true, indice: false, secondes: 10 }, jour,
+    ).progress;
+    const seconde = terminerBibliotheque(
+      premiere, 'a', 1000, { reussi: true, indice: false, secondes: 10 }, jour,
+    ).progress;
+    expect(seconde.xp).toBe(premiere.xp);
+  });
+
+  it('une réussite compte pour l’objectif du jour, un échec non', () => {
+    const rate = terminerBibliotheque(
+      emptyProgress(), 'a', 1000, { reussi: false, indice: false, secondes: 10 }, jour,
+    ).progress;
+    expect(rate.objectifs.problemes).toBe(0);
+    const reussi = terminerBibliotheque(
+      emptyProgress(), 'a', 1000, { reussi: true, indice: false, secondes: 10 }, jour,
+    ).progress;
+    expect(reussi.objectifs.problemes).toBe(1);
+  });
+
+  it('une ancienne sauvegarde sans Bibliothèque reçoit les valeurs par défaut', () => {
+    const ancien = { ...emptyProgress() } as Record<string, unknown>;
+    delete ancien.bibliotheque;
+    const lu = normalize(ancien);
+    expect(lu.bibliotheque.note).toBe(NOTE_INITIALE);
+    expect(lu.bibliotheque.vus).toEqual({});
+  });
+
+  it('une sauvegarde corrompue est remise en état', () => {
+    const lu = normalize({ bibliotheque: { note: 'abc', joues: -5, vus: 'x', serie: 3 } });
+    expect(lu.bibliotheque.note).toBe(NOTE_INITIALE);
+    expect(lu.bibliotheque.joues).toBe(0);
+    expect(lu.bibliotheque.vus).toEqual({});
+    expect(lu.bibliotheque.serie).toBe(3);
+  });
+
+  it('la sauvegarde survit à un aller-retour', () => {
+    const p = terminerBibliotheque(
+      emptyProgress(), 'a', 1200, { reussi: true, indice: false, secondes: 8 }, jour,
+    ).progress;
+    expect(normalize(JSON.parse(JSON.stringify(p))).bibliotheque).toEqual(p.bibliotheque);
+  });
+});
 
 /** Rejoue la solution complète d'un problème, comme le ferait l'élève. */
 function resoudre(etat: EtatLichess): EtatLichess {
