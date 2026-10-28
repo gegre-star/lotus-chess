@@ -62,6 +62,11 @@ contient pas : voir « À faire vérifier ».
 - Textes des leçons, positions, personnages, icônes de l'application : créés
   pour le projet (voir le README). Les parties historiques citées sont des
   relevés de parties réelles (des faits, non des œuvres).
+- **Bibliothèque de problèmes** (`src/chess/problemes-lichess.ts`) : 646
+  positions et solutions tirées de la base de problèmes de Lichess
+  (https://database.lichess.org/#puzzles), publiée dans le domaine public
+  (licence CC0). Le fichier est généré par `scripts/importer-problemes.mjs` ;
+  aucune attribution n'est exigée, elle est donnée ici par courtoisie.
 - Aucune police n'est chargée : le texte utilise les polices du système ; les
   émojis des onglets sont ceux du système.
 

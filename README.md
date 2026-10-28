@@ -31,7 +31,13 @@ locale — essayer `npx expo start --tunnel`.
 17 thèmes tactiques, 19 exercices guidés, 17 ouvertures, 5 adversaires de 500 à 1900 Elo et
 12 trophées.
 
-Les textes, les positions et les personnages sont originaux. Les parties
+La **Bibliothèque** (écran Problèmes) ajoute 646 problèmes de la base libre de
+Lichess, de 600 à 2400, à jouer côté blancs ou noirs. Comme sur chess.com, chacun
+a un niveau et l'élève aussi : la note monte à chaque réussite, baisse à chaque
+échec, et un indice réduit le gain. On peut filtrer par thème. La sélection se
+rafraîchit avec `node scripts/importer-problemes.mjs`.
+
+Les textes, les positions et les personnages sont originaux (hors Bibliothèque). Les parties
 historiques citées sont des relevés de parties réelles (Morphy 1858,
 Anderssen 1851, Byrne–Fischer 1956).
 
