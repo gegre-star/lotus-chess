@@ -7,6 +7,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LESSONS, PUZZLES, TROPHIES } from './content';
+import { NOTE_INITIALE, NOTE_MAX, NOTE_MIN, nouvelleNote } from './lichess';
 
 export const STORAGE_KEY = 'lotus-chess:progress:v1';
 export const XP_PER_LEVEL = 150;
@@ -42,6 +43,20 @@ export interface ObjectifsDuJour {
 export const CIBLES_DU_JOUR = { lecons: 1, problemes: 3, parties: 1 } as const;
 export const BONUS_DU_JOUR = 50;
 
+/** Le mode « Bibliothèque » : problèmes notés, avec un niveau propre à l'élève. */
+export interface Bibliotheque {
+  /** Note de l'élève aux problèmes (système Elo). */
+  note: number;
+  meilleure: number;
+  /** Problèmes terminés, réussis ou non — pour ne pas les reproposer tout de suite. */
+  joues: number;
+  reussis: number;
+  /** Réussites d'affilée, sans indice ni erreur. */
+  serie: number;
+  meilleureSerie: number;
+  vus: Record<string, boolean>;
+}
+
 export interface Progress {
   xp: number;
   elo: number;
@@ -65,7 +80,18 @@ export interface Progress {
   /** Jours consécutifs d'activité — la mesure de régularité qui fait revenir. */
   serieJours: { dernier: string | null; courante: number; meilleure: number };
   objectifs: ObjectifsDuJour;
+  bibliotheque: Bibliotheque;
 }
+
+export const emptyBibliotheque = (): Bibliotheque => ({
+  note: NOTE_INITIALE,
+  meilleure: NOTE_INITIALE,
+  joues: 0,
+  reussis: 0,
+  serie: 0,
+  meilleureSerie: 0,
+  vus: {},
+});
 
 export const emptyProgress = (): Progress => ({
   xp: 0,
@@ -86,6 +112,7 @@ export const emptyProgress = (): Progress => ({
   settings: { sound: true, vibration: true, coords: true, board: 'foret' },
   serieJours: { dernier: null, courante: 0, meilleure: 0 },
   objectifs: { jour: null, lecons: 0, problemes: 0, parties: 0, bonus: false },
+  bibliotheque: emptyBibliotheque(),
 });
 
 // ------------------------------------------------------------ objectifs du jour
@@ -251,6 +278,46 @@ export function solvePuzzle(
   return fusionner(fait, enregistrerActivite(fait.progress, 'probleme', jour));
 }
 
+/**
+ * Enregistre la fin d'un problème de la Bibliothèque. À appeler une seule fois
+ * par problème : à la première erreur (ou à l'abandon), ou à la réussite si
+ * aucune erreur n'a été faite.
+ *
+ * Comme sur chess.com, la note monte quand on réussit, baisse quand on échoue,
+ * et un indice réduit le gain. Les points d'expérience ne sont versés que pour
+ * un problème réussi la première fois.
+ */
+export function terminerBibliotheque(
+  p: Progress,
+  id: string,
+  niveauProbleme: number,
+  opts: { reussi: boolean; indice: boolean; secondes: number },
+  jour?: string,
+): Awarded {
+  const b = p.bibliotheque;
+  const note = nouvelleNote(b.note, niveauProbleme, opts, b.joues);
+  const sansFaute = opts.reussi && !opts.indice;
+  const serie = sansFaute ? b.serie + 1 : 0;
+  const premiere = !b.vus[id];
+  const points =
+    opts.reussi && premiere ? puzzleReward(niveauProbleme, opts.secondes, false, opts.indice) : 0;
+  const fait = withTrophies({
+    ...p,
+    xp: p.xp + points,
+    bibliotheque: {
+      note,
+      meilleure: Math.max(b.meilleure, note),
+      joues: b.joues + 1,
+      reussis: b.reussis + (opts.reussi ? 1 : 0),
+      serie,
+      meilleureSerie: Math.max(b.meilleureSerie, serie),
+      vus: { ...b.vus, [id]: true },
+    },
+  });
+  if (!opts.reussi) return fait;
+  return fusionner(fait, enregistrerActivite(fait.progress, 'probleme', jour));
+}
+
 /** Points d'une finale réussie, versés une seule fois. */
 export const POINTS_FINALE = 30;
 
@@ -329,6 +396,21 @@ function normaliserSerie(v: unknown): Progress['serieJours'] {
   };
 }
 
+function normaliserBibliotheque(v: unknown): Bibliotheque {
+  const o = v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  const note = entier(o.note, NOTE_INITIALE, NOTE_MIN, NOTE_MAX);
+  const serie = entier(o.serie, 0, 0, 100_000);
+  return {
+    note,
+    meilleure: Math.max(note, entier(o.meilleure, NOTE_INITIALE, NOTE_MIN, NOTE_MAX)),
+    joues: entier(o.joues, 0, 0, 1_000_000),
+    reussis: entier(o.reussis, 0, 0, 1_000_000),
+    serie,
+    meilleureSerie: Math.max(serie, entier(o.meilleureSerie, 0, 0, 100_000)),
+    vus: drapeaux(o.vus),
+  };
+}
+
 function normaliserObjectifs(v: unknown): ObjectifsDuJour {
   const o = v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
   return {
@@ -383,6 +465,8 @@ export function normalize(raw: unknown): Progress {
       .slice(-20),
     serieJours: normaliserSerie(d.serieJours),
     objectifs: normaliserObjectifs(d.objectifs),
+    // absent des sauvegardes antérieures à la Bibliothèque
+    bibliotheque: normaliserBibliotheque(d.bibliotheque),
     settings: {
       sound: typeof reglages.sound === 'boolean' ? reglages.sound : base.settings.sound,
       coords: typeof reglages.coords === 'boolean' ? reglages.coords : base.settings.coords,

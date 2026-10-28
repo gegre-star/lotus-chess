@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ChessBoard, type Arrow, type SquareBadge } from '../src/components/ChessBoard';
 import { CoachBubble, type BubbleTone } from '../src/components/CoachBubble';
 import { PromotionDialog } from '../src/components/PromotionDialog';
@@ -84,6 +85,7 @@ function coupDepuisUci(pos: Position, uci: string): Move | null {
 export default function PuzzlesScreen() {
   const { width } = useWindowDimensions();
   const { progress, update } = useProgress();
+  const router = useRouter();
 
   /**
    * La session vit dans une référence **et** dans l'état : toutes les
@@ -467,6 +469,14 @@ export default function PuzzlesScreen() {
             subtitle={`Un maximum de problèmes en un coup. Ton record : ${progress.sprintBest}`}
             onPress={lancerSprint}
             testID="lancer-sprint"
+          />
+        </View>
+        <View style={[S.pad, { paddingTop: 8 }]}>
+          <ListItem
+            title="📚 Bibliothèque de problèmes"
+            subtitle={`Blancs ou noirs, avec ton niveau qui évolue. Ton niveau : ${progress.bibliotheque.note}`}
+            onPress={() => router.push('/bibliotheque')}
+            testID="ouvrir-bibliotheque"
           />
         </View>
         <View style={S.sectionRow}>

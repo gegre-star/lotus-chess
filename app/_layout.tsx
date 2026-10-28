@@ -89,6 +89,7 @@ export default function ChessLayout() {
         <Tabs.Screen name="games" options={{ href: null, title: 'Parties de maîtres' }} />
         <Tabs.Screen name="settings" options={{ href: null, title: 'Réglages' }} />
         <Tabs.Screen name="finales" options={{ href: null, title: 'Pratique des finales' }} />
+        <Tabs.Screen name="bibliotheque" options={{ href: null, title: 'Bibliothèque de problèmes' }} />
         <Tabs.Screen
           name="index"
           options={{ title: 'Accueil', tabBarIcon: icon('♟') }}
